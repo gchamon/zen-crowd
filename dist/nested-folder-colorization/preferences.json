@@ -1,0 +1,46 @@
+[
+  {
+    "property": "zen.crowd.folder.colorSource",
+    "label": "Color source",
+    "type": "dropdown",
+    "defaultValue": "palette",
+    "options": [
+      { "label": "Fixed palette", "value": "palette" },
+      { "label": "Theme accent (hue-rotated)", "value": "theme" }
+    ]
+  },
+  {
+    "property": "zen.crowd.folder.hoverExpandEnabled",
+    "label": "Hover-expand folders",
+    "type": "checkbox",
+    "defaultValue": true
+  },
+  {
+    "property": "zen.crowd.folder.hoverCollapseDelay",
+    "label": "Hover collapse delay (ms)",
+    "type": "string",
+    "defaultValue": "200",
+    "placeholder": "200"
+  },
+  {
+    "property": "zen.crowd.folder.tintOpacityLight",
+    "label": "Tint opacity — light theme (0–100)",
+    "type": "string",
+    "defaultValue": "18",
+    "placeholder": "18"
+  },
+  {
+    "property": "zen.crowd.folder.tintOpacityDark",
+    "label": "Tint opacity — dark theme (0–100)",
+    "type": "string",
+    "defaultValue": "22",
+    "placeholder": "22"
+  },
+  {
+    "property": "zen.crowd.folder.folderBorderRadius",
+    "label": "Folder border radius (px)",
+    "type": "string",
+    "defaultValue": "6",
+    "placeholder": "6"
+  }
+]
