@@ -69,7 +69,7 @@ cp "$SCRIPT_DIR/dist/nested-folder-colorization/preferences.json" "$MOD_DIR/"
 cp "$SCRIPT_DIR/dist/nested-folder-colorization/chrome.css" "$MOD_DIR/"
 cp "$SCRIPT_DIR/src/nested-folder-colorization.js" "$JS_DIR/"
 
-ZEN_THEMES_JSON="$CHROME_DIR/zen-themes.json"
+ZEN_THEMES_JSON="$PROFILE_PATH/zen-themes.json"
 python3 -c "
 import json, os
 path = '$ZEN_THEMES_JSON'
