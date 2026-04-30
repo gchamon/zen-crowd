@@ -2,6 +2,14 @@
 
 A mod for [Zen Browser](https://zen-browser.app/) that improves the visual hierarchy and interaction of nested folders in the tab sidebar.
 
+![Detail from Crows in Early Winter by Kishi Chikudo](docs/assets/crows-in-early-winter-detail.png)
+
+<sub>Detail after Kishi Chikudo (Japanese, 1826-1897), <em>Crows in Early Winter</em>, ca. 1895. Ink and color on gold-leaf ground; pair of six-panel folding screens. Santa Barbara Museum of Art, museum purchase with funds provided by Lord and Lady Ridley-Tree, Priscilla Giesen, and special funds, 2002.7.1-2. Source identification: Santa Barbara Museum of Art, <a href="https://www.sbma.net/exhibitions/pathsofgold"><em>Paths of Gold: Japanese Landscape and Narrative Paintings from the Collection</em></a>.</sub>
+
+## About the look
+
+These are crows. Crows are [zen birds](https://www.lionsroar.com/buddhas-birds/). This project also deals with *crow*ded folders, with many nested folders and items. I think the reference is nice :)
+
 ## What it does
 
 ### Nested Folder Colorization
@@ -128,4 +136,4 @@ Paste `src/nested-folder-colorization.js` into the Browser Console (Ctrl+Shift+J
 
 ## License
 
-See individual subdirectories. The mod source (`src/` and `dist/`) is released under the same license as the project root.
+See individual subdirectories. The mod source (`src/` and `dist/`) is released under the same license as the project root. The README artwork is included for attribution and presentation only; no artwork license is granted by this repository.
