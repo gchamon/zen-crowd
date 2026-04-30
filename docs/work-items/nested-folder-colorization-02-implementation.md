@@ -2,7 +2,7 @@
 
 ## Status
 
-done
+doing
 
 ## Outcome
 
@@ -35,12 +35,20 @@ Work item `-01` settled the following — no further investigation needed:
 - **Theming**: each palette step is a `light-dark(<lightHex>, <darkHex>)`
   value; a single override rule handles both themes. No parallel
   stylesheet needed.
-- **Hover-expand semantics**: auto-expand on `mouseenter`, auto-collapse
-  on `mouseleave` with a ~200ms delay. A folder is pinned open if it
-  contains the active tab (rule a) or was manually expanded by the user
-  before the hover (rule b). Mechanism is JS-driven (toggling Zen's
-  `collapsed` attribute); CSS-only `:hover` is insufficient as it does
-  not change Zen's internal state.
+- **Hover-expand semantics**: auto-expand on `mouseenter` of a
+  collapsed folder. Auto-expanded folders are tagged with the
+  `zen-crowd-hover-expanded` class and rendered at reduced opacity to
+  signal their tentative state. Collapse is driven by a single
+  `mouseleave` on `#tabbrowser-tabs`: when the pointer leaves the
+  sidebar, every folder still bearing the marker class is collapsed.
+  A folder is pinned open if it contains the active tab (no marker
+  added on hover) or if the user clicks anywhere inside it while it
+  is auto-expanded (the click clears the marker). Mechanism is
+  JS-driven (toggling Zen's `collapsed` attribute); CSS-only `:hover`
+  is insufficient as it does not change Zen's internal state. Per-
+  folder mouseleave timers are deliberately avoided: collapsing one
+  folder reflows the sidebar and can yank a still-hovered sibling out
+  from under the cursor, cascading into spurious collapses.
 
 ## Main Quests
 
@@ -65,14 +73,18 @@ Work item `-01` settled the following — no further investigation needed:
 - Honor light/dark themes through `light-dark()`, matching what the
   spike validated.
 - Implement hover-expand behavior:
-  - On `mouseenter` of a `zen-folder`, record the folder's current
-    collapsed state, then expand it.
-  - On `mouseleave`, start a ~200ms timer. On timer fire: if the folder
-    contains the active tab (rule a) or was already expanded before the
-    hover (rule b), leave it open; otherwise restore it to its
-    pre-hover collapsed state.
-  - Moving the mouse from a parent folder into a child before the timer
-    fires must not collapse the parent.
+  - On `mouseenter` of a collapsed `zen-folder`, expand it and tag it
+    with the `zen-crowd-hover-expanded` class (skip the tag when the
+    folder contains the active tab — that folder is implicitly pinned).
+  - Auto-expanded folders are rendered at reduced opacity so the user
+    can tell at a glance they will collapse on sidebar-leave.
+  - Attach a single `mouseleave` to `#tabbrowser-tabs`. When the
+    pointer truly leaves the sidebar (relatedTarget not inside the
+    container), collapse every folder still tagged with the marker
+    class and clear the tag.
+  - On click anywhere inside an auto-expanded folder, drop the marker
+    class — the click promotes the folder to user-pinned and it will
+    survive subsequent sidebar-leaves.
   - Use a `MutationObserver` on `#tabbrowser-tabs` to attach handlers
     to folders created after script load, so the behavior works on
     newly opened windows and dynamically added folders.
@@ -93,13 +105,17 @@ Work item `-01` settled the following — no further investigation needed:
   selection compared to the unmodded baseline.
 - The file imports nothing Sidebery-specific and does not reach into
   any extension's internals.
-- Hovering a collapsed folder expands it; moving the mouse away
-  collapses it after ~200ms.
-- A folder containing the active tab does not auto-collapse on leave.
-- A folder the user had manually expanded before hovering does not
-  auto-collapse on leave.
-- Moving the mouse from a parent into a child folder before the 200ms
-  elapses does not collapse the parent.
+- Hovering a collapsed folder expands it and renders it at reduced
+  opacity to signal its tentative state.
+- Auto-expanded folders stay open as long as the pointer is anywhere
+  inside `#tabbrowser-tabs`; they collapse only when the pointer
+  leaves the sidebar.
+- A folder containing the active tab is never auto-collapsed and is
+  never rendered at reduced opacity, even when first opened by hover.
+- Clicking anywhere inside an auto-expanded folder removes its faded
+  look and pins it open across subsequent sidebar-leaves.
+- Moving the mouse between sibling sub-folders does not cause any
+  folder to collapse.
 - Folders created after script load receive the hover-expand behavior.
 
 ## Metadata

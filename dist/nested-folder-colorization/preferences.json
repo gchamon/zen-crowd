@@ -3,11 +3,27 @@
     "property": "zen.crowd.folder.colorSource",
     "label": "Color source",
     "type": "dropdown",
-    "defaultValue": "palette",
+    "defaultValue": "",
+    "placeholder": "Theme accent (default)",
     "options": [
       { "label": "Fixed palette", "value": "palette" },
-      { "label": "Theme accent (hue-rotated)", "value": "theme" }
+      { "label": "Custom base color (hue-rotated)", "value": "custom-hue" },
+      { "label": "Custom colors (per depth)", "value": "custom-list" }
     ]
+  },
+  {
+    "property": "zen.crowd.folder.customBaseColor",
+    "label": "Custom base color (hex)",
+    "type": "string",
+    "defaultValue": "#2980b9",
+    "placeholder": "#2980b9"
+  },
+  {
+    "property": "zen.crowd.folder.customColors",
+    "label": "Custom colors — comma-separated hex, one per depth",
+    "type": "string",
+    "defaultValue": "",
+    "placeholder": "#e74c3c,#e67e22,#27ae60,#2980b9,#8e44ad,#16a085"
   },
   {
     "property": "zen.crowd.folder.hoverExpandEnabled",
@@ -17,10 +33,10 @@
   },
   {
     "property": "zen.crowd.folder.hoverCollapseDelay",
-    "label": "Hover collapse delay (ms)",
+    "label": "Collapse delay (ms)",
     "type": "string",
-    "defaultValue": "200",
-    "placeholder": "200"
+    "defaultValue": "500",
+    "placeholder": "500"
   },
   {
     "property": "zen.crowd.folder.tintOpacityLight",

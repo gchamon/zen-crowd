@@ -1,9 +1,15 @@
+// ==UserScript==
+// @name           zen-crowd-folder-colorization
+// @description    Colorizes nested folders by depth and adds hover-expand behavior
+// @include        main
+// ==/UserScript==
+
 // Nested Folder Colorization — zen-crowd mod
 //
 // Colorizes Zen Browser's native nested folders by depth with a translucent
 // tint, and adds hover-expand: hovering a collapsed folder expands it;
-// leaving collapses it after a configurable delay unless it contains the
-// active tab or was already expanded before the hover.
+// moving the pointer out of the sidebar collapses auto-expanded folders
+// with a staggered delay.
 //
 // USAGE
 //   Development  : paste into Zen Browser Console (Ctrl+Shift+J) and press Enter.
@@ -18,11 +24,13 @@
 
 function readConfig() {
   return {
-    colorSource: Services.prefs.getStringPref("zen.crowd.folder.colorSource", "palette"),
+    colorSource: Services.prefs.getStringPref("zen.crowd.folder.colorSource", ""),
+    customBaseColor: Services.prefs.getStringPref("zen.crowd.folder.customBaseColor", "#2980b9"),
+    customColors: Services.prefs.getStringPref("zen.crowd.folder.customColors", ""),
     tintOpacityLight: parseInt(Services.prefs.getStringPref("zen.crowd.folder.tintOpacityLight", "18"), 10) / 100,
     tintOpacityDark: parseInt(Services.prefs.getStringPref("zen.crowd.folder.tintOpacityDark", "22"), 10) / 100,
     folderBorderRadius: parseInt(Services.prefs.getStringPref("zen.crowd.folder.folderBorderRadius", "6"), 10),
-    hoverCollapseDelay: parseInt(Services.prefs.getStringPref("zen.crowd.folder.hoverCollapseDelay", "200"), 10),
+    hoverCollapseDelay: parseInt(Services.prefs.getStringPref("zen.crowd.folder.hoverCollapseDelay", "500"), 10),
     hoverExpandEnabled: Services.prefs.getBoolPref("zen.crowd.folder.hoverExpandEnabled", true),
     // Static (not user-facing via UI — edit src directly to override)
     palette: [
@@ -72,29 +80,24 @@ function hslToHex(h, s, l) {
   return `#${[f(0), f(8), f(4)].map(v => v.toString(16).padStart(2, "0")).join("")}`;
 }
 
-// Reads --zen-primary-color from a window's document and builds a hue-rotated
-// palette of `count` steps with `hueStep` degrees between them.
-function buildThemePalette(win, count, hueStep) {
-  const raw = win.getComputedStyle(win.document.documentElement)
-    .getPropertyValue("--zen-primary-color").trim();
-
-  // Resolve the value; it may be a named color or hex. Parse it via a
-  // temporary canvas element to normalize to rgb().
+// Parses any CSS color string via canvas and returns [r, g, b] (0–255).
+function parseCssColor(win, cssColor) {
   const canvas = win.document.createElement("canvas");
   canvas.width = canvas.height = 1;
   const ctx = canvas.getContext("2d");
-
-  ctx.fillStyle = raw || "#2980b9";
+  ctx.fillStyle = cssColor;
   ctx.fillRect(0, 0, 1, 1);
   const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+  return [r, g, b];
+}
 
+// Builds a hue-rotated palette from any CSS color string.
+function buildHueRotatedPalette(win, cssColor, count, hueStep) {
+  const [r, g, b] = parseCssColor(win, cssColor);
   const [h, s, l] = rgbToHsl(r, g, b);
-
-  // For the dark variant use a lighter, more saturated tone.
   const lLight = Math.min(l + 10, 65);
   const lDark  = Math.min(l + 25, 80);
   const sDark  = Math.min(s + 10, 100);
-
   return Array.from({ length: count }, (_, i) => {
     const hue = h + i * hueStep;
     return {
@@ -104,11 +107,54 @@ function buildThemePalette(win, count, hueStep) {
   });
 }
 
+// Reads --zen-primary-color and delegates to buildHueRotatedPalette.
+function buildThemePalette(win, count, hueStep) {
+  const raw = win.getComputedStyle(win.document.documentElement)
+    .getPropertyValue("--zen-primary-color").trim();
+  return buildHueRotatedPalette(win, raw || "#2980b9", count, hueStep);
+}
+
+// Builds a palette from a list of hex strings, applying the same light/dark
+// lightness adjustments as buildHueRotatedPalette. Cycles the list if it is
+// shorter than count.
+function buildCustomListPalette(win, hexes, count) {
+  return Array.from({ length: count }, (_, i) => {
+    const hex = hexes[i % hexes.length];
+    const [r, g, b] = parseCssColor(win, hex);
+    const [h, s, l] = rgbToHsl(r, g, b);
+    const lLight = Math.min(l + 10, 65);
+    const lDark  = Math.min(l + 25, 80);
+    const sDark  = Math.min(s + 10, 100);
+    return {
+      light: hslToHex(h, s,     lLight),
+      dark:  hslToHex(h, sDark, lDark),
+    };
+  });
+}
+
 // Builds the CSS string for all depth levels.
 function buildCSS(win, config) {
-  const palette = config.colorSource === "theme"
-    ? buildThemePalette(win, config.themeDepthCount, config.themeHueStep)
-    : config.palette;
+  let palette;
+  switch (config.colorSource) {
+    case "palette":
+      palette = config.palette;
+      break;
+    case "custom-hue":
+      palette = buildHueRotatedPalette(
+        win, config.customBaseColor || "#2980b9",
+        config.themeDepthCount, config.themeHueStep
+      );
+      break;
+    case "custom-list": {
+      const hexes = config.customColors.split(",").map(s => s.trim()).filter(Boolean);
+      palette = hexes.length
+        ? buildCustomListPalette(win, hexes, config.themeDepthCount)
+        : buildThemePalette(win, config.themeDepthCount, config.themeHueStep);
+      break;
+    }
+    default: // "" or unrecognised → theme accent
+      palette = buildThemePalette(win, config.themeDepthCount, config.themeHueStep);
+  }
 
   const lightPct = Math.round(config.tintOpacityLight * 100) + "%";
   const darkPct  = Math.round(config.tintOpacityDark  * 100) + "%";
@@ -123,6 +169,10 @@ function buildCSS(win, config) {
     )`;
     return `${selector} {\n  background-color: ${bg};\n  border-radius: ${r}px;\n}`;
   });
+
+  rules.push(
+    `#tabbrowser-tabs zen-folder.${HOVER_CLASS} {\n  opacity: 0.75;\n}`
+  );
 
   return rules.join("\n\n");
 }
@@ -155,49 +205,60 @@ function attachHoverHandlers(folder) {
   if (_attachedFolders.has(folder)) return;
   _attachedFolders.add(folder);
 
-  let wasCollapsedBeforeHover = false;
-  let collapseTimer = null;
-
-  folder.addEventListener("mouseenter", () => {
+  folder.addEventListener("mouseenter", (event) => {
     if (!Services.prefs.getBoolPref("zen.crowd.folder.hoverExpandEnabled", true)) return;
-    if (collapseTimer !== null) {
-      clearTimeout(collapseTimer);
-      collapseTimer = null;
-    }
-    wasCollapsedBeforeHover = folder.collapsed;
-    if (folder.collapsed) {
-      folder.collapsed = false;
+    if (event.shiftKey) return;
+    if (!folder.collapsed) return;
+    folder.collapsed = false;
+    // A folder containing the active tab is implicitly user-pinned: skip
+    // the marker so it isn't faded and isn't swept on sidebar-leave.
+    if (!folderHasActiveTab(folder)) {
       folder.classList.add(HOVER_CLASS);
     }
   });
 
-  folder.addEventListener("mouseleave", () => {
+  folder.addEventListener("dragenter", () => {
     if (!Services.prefs.getBoolPref("zen.crowd.folder.hoverExpandEnabled", true)) return;
-    const delay = parseInt(Services.prefs.getStringPref("zen.crowd.folder.hoverCollapseDelay", "200"), 10);
-    collapseTimer = setTimeout(() => {
-      collapseTimer = null;
-      // Rule a: folder has the active tab — keep open.
-      if (folderHasActiveTab(folder)) {
-        folder.classList.remove(HOVER_CLASS);
-        return;
-      }
-      // Rule b: folder was already expanded before this hover — keep open.
-      if (!wasCollapsedBeforeHover) {
-        folder.classList.remove(HOVER_CLASS);
-        return;
-      }
-      // Auto-collapse: return to pre-hover state.
-      if (folder.classList.contains(HOVER_CLASS)) {
-        folder.collapsed = true;
-        folder.classList.remove(HOVER_CLASS);
-      }
-    }, delay);
+    const tabsContainer = folder.closest("#tabbrowser-tabs");
+    if (tabsContainer) cancelCollapseTimers(tabsContainer);
+    if (!folder.collapsed) return;
+    folder.collapsed = false;
+    if (!folderHasActiveTab(folder)) {
+      folder.classList.add(HOVER_CLASS);
+    }
   });
 }
 
 // Attaches hover handlers to all existing zen-folder elements in a window and
 // sets up a MutationObserver so newly added folders are handled automatically.
 const _windowObservers = new WeakMap();
+const _sidebarLeaveListeners = new WeakMap();
+const _sidebarEnterListeners = new WeakMap();
+const _dragEndListeners = new WeakMap();
+// Tracks pending stagger timers per tabsContainer so re-entry cancels them.
+const _collapseTimers = new WeakMap();
+
+function cancelCollapseTimers(tabsContainer) {
+  const timers = _collapseTimers.get(tabsContainer);
+  if (!timers) return;
+  for (const t of timers) clearTimeout(t);
+  _collapseTimers.set(tabsContainer, []);
+}
+
+function collapseAutoExpandedFolders(tabsContainer) {
+  const folders = [...tabsContainer.querySelectorAll(`zen-folder.${HOVER_CLASS}`)];
+  const delay = parseInt(Services.prefs.getStringPref("zen.crowd.folder.hoverCollapseDelay", "500"), 10);
+  const timers = [];
+  folders.forEach((folder) => {
+    timers.push(setTimeout(() => {
+      if (!folder.classList.contains(HOVER_CLASS)) return;
+      folder.classList.remove(HOVER_CLASS);
+      if (folderHasActiveTab(folder)) return;
+      folder.collapsed = true;
+    }, delay));
+  });
+  _collapseTimers.set(tabsContainer, timers);
+}
 
 function setupHoverExpand(win) {
   const doc = win.document;
@@ -208,6 +269,48 @@ function setupHoverExpand(win) {
   for (const folder of tabsContainer.querySelectorAll("zen-folder")) {
     attachHoverHandlers(folder);
   }
+
+  // Single sidebar-level mouseleave: when the pointer truly leaves
+  // #tabbrowser-tabs, sweep all auto-expanded folders shut. This is the
+  // only place auto-expanded folders get collapsed — no per-folder
+  // timers, no reflow races.
+  const priorLeave = _sidebarLeaveListeners.get(tabsContainer);
+  if (priorLeave) {
+    tabsContainer.removeEventListener("mouseleave", priorLeave);
+  }
+  const onSidebarLeave = (event) => {
+    if (!Services.prefs.getBoolPref("zen.crowd.folder.hoverExpandEnabled", true)) return;
+    if (event.relatedTarget instanceof Element && tabsContainer.contains(event.relatedTarget)) return;
+    // Pointer left onto the drag image — keep folders open so the user can
+    // drop into them. The dragend listener handles collapse after the drag.
+    if (win.gZenCompactModeManager?._isTabBeingDragged) return;
+    collapseAutoExpandedFolders(tabsContainer);
+  };
+  tabsContainer.addEventListener("mouseleave", onSidebarLeave);
+  _sidebarLeaveListeners.set(tabsContainer, onSidebarLeave);
+
+  // If the pointer re-enters the sidebar before the stagger completes,
+  // cancel any pending collapse timers.
+  const priorEnter = _sidebarEnterListeners.get(tabsContainer);
+  if (priorEnter) {
+    tabsContainer.removeEventListener("mouseenter", priorEnter);
+  }
+  const onSidebarEnter = () => cancelCollapseTimers(tabsContainer);
+  tabsContainer.addEventListener("mouseenter", onSidebarEnter);
+  _sidebarEnterListeners.set(tabsContainer, onSidebarEnter);
+
+  // After a drag ends, sweep auto-expanded folders. We always sweep here
+  // since we can't reliably read pointer position in dragend.
+  const priorDragEnd = _dragEndListeners.get(tabsContainer);
+  if (priorDragEnd) {
+    tabsContainer.removeEventListener("dragend", priorDragEnd);
+  }
+  const onDragEnd = () => {
+    if (!Services.prefs.getBoolPref("zen.crowd.folder.hoverExpandEnabled", true)) return;
+    collapseAutoExpandedFolders(tabsContainer);
+  };
+  tabsContainer.addEventListener("dragend", onDragEnd);
+  _dragEndListeners.set(tabsContainer, onDragEnd);
 
   // Watch for new zen-folder elements added later.
   if (_windowObservers.has(win)) {

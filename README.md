@@ -37,7 +37,7 @@ Hovering a collapsed folder automatically expands it; moving the mouse away coll
 │   └── architecture/                   # Decisions and methodology
 ├── zen-browser-desktop/                # Reference checkout (excluded from distribution)
 ├── zen-sidebery-mod/                   # Reference checkout (excluded from distribution)
-└── deploy.sh                           # WIP development helper
+└── deploy.sh                           # Install/deploy helper
 ```
 
 ## Configuration
@@ -55,40 +55,65 @@ When installed as a Zen mod, settings are surfaced in **Settings → Zen Mods �
 
 Changes apply immediately across all open windows without restart.
 
+## Installation
+
+### Prerequisites
+
+1. **fx-autoconfig** — required for the mod JS to execute. `deploy.sh` installs both the application-level files (with `sudo`) and the profile-side boot files automatically on first run.
+
+2. **yq** and **jq** — required by `deploy.sh`:
+   ```bash
+   sudo pacman -S yq jq     # Arch
+   brew install yq jq       # macOS
+   ```
+
+### Install
+
+```bash
+bash deploy.sh
+```
+
+The script will:
+1. Check for and optionally install fx-autoconfig application-level files (requires `sudo`)
+2. List profiles from `~/.zen/profiles.ini` (Linux) or `~/Library/Application Support/zen/profiles.ini` (macOS)
+3. Verify the selected profile has fx-autoconfig profile-side files
+4. Copy mod metadata → `chrome/zen-themes/zen-crowd-folder-colorization/`
+5. Copy the script → `chrome/JS/nested-folder-colorization.uc.js`
+6. Register the mod in `zen-themes.json`
+
+**First install only:** clear the startup cache before restarting — open `about:support` → **Clear startup cache**, then restart Zen.
+
+### Verify
+
+Open the Browser Console (Ctrl+Shift+J) and look for:
+```
+[zen-crowd-folder-colorization] loaded — colorSource: palette, hoverExpand: true
+```
+
+### Update
+
+Re-run `bash deploy.sh` and restart Zen.
+
+### Uninstall
+
+1. Delete `chrome/JS/nested-folder-colorization.uc.js` from your profile
+2. Delete `chrome/zen-themes/zen-crowd-folder-colorization/` from your profile
+3. Remove the `zen-crowd-folder-colorization` entry from `zen-themes.json`
+4. Restart Zen
+
+**Profile paths:**
+- Linux: `~/.zen/<profile-dir>/`
+- macOS: `~/Library/Application Support/zen/<profile-dir>/`
+
 ## Development
 
 ### Prerequisites for Browser Console paste
 - `devtools.chrome.enabled` → `true`
 - `devtools.debugger.remote-enabled` → `true`
 
-### Loading the mod
+### Ephemeral loading
 
-**Ephemeral (development):**
-Paste `src/nested-folder-colorization.js` into the Browser Console (Ctrl+Shift+J) and press Enter. Re-pasting replaces the previous injection cleanly.
-
-**Persistent:**
-Drop `src/nested-folder-colorization.js` into your profile's `chrome/JS/` directory (requires [fx-autoconfig](https://github.com/MrOtherGuy/fx-autoconfig)).
-
-### Local deployment (WIP)
-
-A helper script copies the mod into a selected Zen Browser profile. It requires [**yq**](https://github.com/mikefarah/yq) (the Go implementation by Mike Farah) to parse `profiles.ini`.
-
-```bash
-# Install yq first, e.g.:
-#   sudo pacman -S yq        # Arch
-#   brew install yq          # macOS
-#   wget … / snap …          # Linux
-
-./deploy.sh
-```
-
-The script will:
-1. List profiles from `~/.zen/profiles.ini`
-2. Copy `dist/nested-folder-colorization/*` → `chrome/zen-themes/zen-crowd-folder-colorization/`
-3. Copy `src/nested-folder-colorization.js` → `chrome/JS/`
-4. Register the mod in `chrome/zen-themes.json`
-
-> ⚠️ `deploy.sh` is a work-in-progress convenience tool. Manual installation via the Zen mod system or fx-autoconfig is the supported path until packaging stabilizes.
+Paste `src/nested-folder-colorization.js` into the Browser Console (Ctrl+Shift+J) and press Enter. Re-pasting replaces the previous injection cleanly — no restart needed.
 
 ## Roadmap
 
