@@ -2,7 +2,7 @@
 
 A mod for [Zen Browser](https://zen-browser.app/) that improves the visual hierarchy and interaction of nested folders in the tab sidebar.
 
-![Detail from Crows in Early Winter by Kishi Chikudo](docs/assets/crows-in-early-winter-detail.png)
+![Detail from Crows in Early Winter by Kishi Chikudo](docs/assets/crows-in-early-winter.png)
 
 <sub>Detail after Kishi Chikudo (Japanese, 1826-1897), <em>Crows in Early Winter</em>, ca. 1895. Ink and color on gold-leaf ground; pair of six-panel folding screens. Santa Barbara Museum of Art, museum purchase with funds provided by Lord and Lady Ridley-Tree, Priscilla Giesen, and special funds, 2002.7.1-2. Source identification: Santa Barbara Museum of Art, <a href="https://www.sbma.net/exhibitions/pathsofgold"><em>Paths of Gold: Japanese Landscape and Narrative Paintings from the Collection. The image was enhanced using Gemini. The original image can be found [here](https://i.pinimg.com/736x/43/44/f9/4344f9321754eca845b19470682ffd58.jpg).</em></a>.</sub>
 
