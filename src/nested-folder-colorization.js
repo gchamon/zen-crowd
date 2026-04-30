@@ -24,6 +24,8 @@
 const GLOBAL_KEY = "__zenCrowdFolderColorization";
 const STYLE_ID = "zen-crowd-folder-colorization";
 const HOVER_CLASS = "zen-crowd-hover-expanded";
+const BACKGROUND_DEPTH_LIMIT = 24;
+const LEFT_LINE_DEPTH_LIMIT = 7;
 
 globalThis[GLOBAL_KEY]?.destroy?.();
 
@@ -179,10 +181,13 @@ function buildCSS(win, config) {
   const lightPct = Math.round(config.tintOpacityLight * 100) + "%";
   const darkPct  = Math.round(config.tintOpacityDark  * 100) + "%";
   const r        = config.folderBorderRadius;
+  const firstColoredDepth = config.colorTopLevelFolders ? 1 : 2;
 
-  const rules = palette.map(({ light, dark }, i) => {
-    const depth    = i + (config.colorTopLevelFolders ? 1 : 2);
-    const selector = "#tabbrowser-tabs " + Array(depth).fill("zen-folder").join(" ");
+  const depthSelector = depth =>
+    "#tabbrowser-tabs " + Array(depth).fill("zen-folder").join(" ");
+
+  const ruleForDepth = (depth, { light, dark }) => {
+    const selector = depthSelector(depth);
     const color = `light-dark(
       color-mix(in srgb, ${light} ${lightPct}, transparent),
       color-mix(in srgb, ${dark}  ${darkPct},  transparent)
@@ -191,7 +196,21 @@ function buildCSS(win, config) {
       return `${selector} {\n  border-inline-start: 3px solid ${color};\n}`;
     }
     return `${selector} {\n  background-color: ${color};\n  border-radius: ${r}px;\n}`;
-  });
+  };
+
+  let rules;
+  if (config.colorTreatment === "left-line") {
+    rules = [];
+    for (let depth = firstColoredDepth; depth <= LEFT_LINE_DEPTH_LIMIT; depth++) {
+      rules.push(ruleForDepth(depth, palette[(depth - firstColoredDepth) % palette.length]));
+    }
+    rules.push(`${depthSelector(LEFT_LINE_DEPTH_LIMIT + 1)} {\n  border-inline-start: 0;\n}`);
+  } else {
+    rules = [];
+    for (let depth = firstColoredDepth; depth <= BACKGROUND_DEPTH_LIMIT; depth++) {
+      rules.push(ruleForDepth(depth, palette[(depth - firstColoredDepth) % palette.length]));
+    }
+  }
 
   rules.push(
     `#tabbrowser-tabs zen-folder.${HOVER_CLASS} {\n  opacity: 0.75;\n}`

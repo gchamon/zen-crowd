@@ -2,7 +2,7 @@
 
 ## Status
 
-doing
+done
 
 ## Outcome
 
@@ -23,8 +23,9 @@ palette are inputs here.
 Work item `-01` settled the following — no further investigation needed:
 
 - **Selector strategy**: pure CSS descendant selectors anchored to
-  `#tabbrowser-tabs`, up to six depth levels cycling at depth 7+. No JS
-  depth-tagging required.
+  `#tabbrowser-tabs`. Background colors cycle through the palette at
+  depth 7+; left-line treatment stops after depth 7. No JS depth-tagging
+  required.
 - **Colorization target**: `background-color` on `zen-folder` itself
   (the background-tint variant), *not* the three icon custom properties
   (`--zen-folder-behind-bgcolor`, `--zen-folder-front-bgcolor`,
@@ -42,13 +43,12 @@ Work item `-01` settled the following — no further investigation needed:
   `mouseleave` on `#tabbrowser-tabs`: when the pointer leaves the
   sidebar, every folder still bearing the marker class is collapsed.
   A folder is pinned open if it contains the active tab (no marker
-  added on hover) or if the user clicks anywhere inside it while it
-  is auto-expanded (the click clears the marker). Mechanism is
-  JS-driven (toggling Zen's `collapsed` attribute); CSS-only `:hover`
-  is insufficient as it does not change Zen's internal state. Per-
-  folder mouseleave timers are deliberately avoided: collapsing one
-  folder reflows the sidebar and can yank a still-hovered sibling out
-  from under the cursor, cascading into spurious collapses.
+  added on hover). Mechanism is JS-driven (toggling Zen's `collapsed`
+  attribute); CSS-only `:hover` is insufficient as it does not change
+  Zen's internal state. Per-folder mouseleave timers are deliberately
+  avoided: collapsing one folder reflows the sidebar and can yank a
+  still-hovered sibling out from under the cursor, cascading into
+  spurious collapses.
 
 ## Main Quests
 
@@ -82,9 +82,6 @@ Work item `-01` settled the following — no further investigation needed:
     pointer truly leaves the sidebar (relatedTarget not inside the
     container), collapse every folder still tagged with the marker
     class and clear the tag.
-  - On click anywhere inside an auto-expanded folder, drop the marker
-    class — the click promotes the folder to user-pinned and it will
-    survive subsequent sidebar-leaves.
   - Use a `MutationObserver` on `#tabbrowser-tabs` to attach handlers
     to folders created after script load, so the behavior works on
     newly opened windows and dynamically added folders.
@@ -112,8 +109,8 @@ Work item `-01` settled the following — no further investigation needed:
   leaves the sidebar.
 - A folder containing the active tab is never auto-collapsed and is
   never rendered at reduced opacity, even when first opened by hover.
-- Clicking anywhere inside an auto-expanded folder removes its faded
-  look and pins it open across subsequent sidebar-leaves.
+- Background treatment cycles colors beyond depth 6; left-line
+  treatment renders lines only through depth 7.
 - Moving the mouse between sibling sub-folders does not cause any
   folder to collapse.
 - Folders created after script load receive the hover-expand behavior.

@@ -7,13 +7,13 @@ A mod for [Zen Browser](https://zen-browser.app/) that improves the visual hiera
 ### Nested Folder Colorization
 Applies color to `zen-folder` elements based on their nesting depth, making it easy to visually trace the folder hierarchy at a glance.
 
-- **Depth-aware** — each nesting level gets a distinct color from a six-step palette that cycles at depth 7+
+- **Depth-aware** — background colors cycle through a six-step palette; left-side lines stop after depth 7
 - **Theme-aware** — colors adapt to both light and dark themes via `light-dark()`
 - **Configurable treatment** — use a translucent background fill or a left-side line
 - **Optional root styling** — leave top-level folders uncolored and start colors at subfolders
 - **Two color sources**:
-  - **Fixed palette** (default) — warm, distinct hues per depth level
-  - **Theme accent** — derives the palette from Zen's current accent color (`--zen-primary-color`) with hue rotation
+  - **Theme accent** (default) — derives the palette from Zen's current accent color (`--zen-primary-color`) with hue rotation
+  - **Fixed palette** — warm, distinct hues per depth level
 
 ### Hover-Expand
 Hovering a collapsed folder automatically expands it; moving the mouse away collapses it after a short delay.
@@ -48,7 +48,7 @@ When installed as a Zen mod, settings are surfaced in **Settings → Zen Mods �
 
 | Setting | Type | Default |
 |---|---|---|
-| Color source | dropdown | Fixed palette |
+| Color source | dropdown | Theme accent |
 | Color top-level folders | checkbox | true |
 | Color treatment | dropdown | Background fill |
 | Hover-expand folders | checkbox | true |
