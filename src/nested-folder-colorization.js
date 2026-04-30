@@ -20,6 +20,27 @@
 //   devtools.chrome.enabled         = true
 //   devtools.debugger.remote-enabled = true
 
+(() => {
+const GLOBAL_KEY = "__zenCrowdFolderColorization";
+const STYLE_ID = "zen-crowd-folder-colorization";
+const HOVER_CLASS = "zen-crowd-hover-expanded";
+
+globalThis[GLOBAL_KEY]?.destroy?.();
+
+const state = {
+  attachedFolders: new WeakSet(),
+  folderListeners: new WeakMap(),
+  windowObservers: new WeakMap(),
+  sidebarLeaveListeners: new WeakMap(),
+  sidebarEnterListeners: new WeakMap(),
+  dragEndListeners: new WeakMap(),
+  collapseTimers: new WeakMap(),
+  prefObserver: null,
+  windowListener: null,
+};
+
+globalThis[GLOBAL_KEY] = state;
+
 // ─── Configuration (backed by Services.prefs) ───────────────────────────────
 
 function readConfig() {
@@ -27,6 +48,8 @@ function readConfig() {
     colorSource: Services.prefs.getStringPref("zen.crowd.folder.colorSource", ""),
     customBaseColor: Services.prefs.getStringPref("zen.crowd.folder.customBaseColor", "#2980b9"),
     customColors: Services.prefs.getStringPref("zen.crowd.folder.customColors", ""),
+    colorTopLevelFolders: Services.prefs.getBoolPref("zen.crowd.folder.colorTopLevelFolders", true),
+    colorTreatment: Services.prefs.getStringPref("zen.crowd.folder.colorTreatment", "background"),
     tintOpacityLight: parseInt(Services.prefs.getStringPref("zen.crowd.folder.tintOpacityLight", "18"), 10) / 100,
     tintOpacityDark: parseInt(Services.prefs.getStringPref("zen.crowd.folder.tintOpacityDark", "22"), 10) / 100,
     folderBorderRadius: parseInt(Services.prefs.getStringPref("zen.crowd.folder.folderBorderRadius", "6"), 10),
@@ -47,9 +70,6 @@ function readConfig() {
 }
 
 // ─── Implementation ──────────────────────────────────────────────────────────
-
-const STYLE_ID = "zen-crowd-folder-colorization";
-const HOVER_CLASS = "zen-crowd-hover-expanded";
 
 // Converts [r, g, b] (0–255) to [h (0–360), s (0–100), l (0–100)].
 function rgbToHsl(r, g, b) {
@@ -161,13 +181,16 @@ function buildCSS(win, config) {
   const r        = config.folderBorderRadius;
 
   const rules = palette.map(({ light, dark }, i) => {
-    const depth    = i + 1;
+    const depth    = i + (config.colorTopLevelFolders ? 1 : 2);
     const selector = "#tabbrowser-tabs " + Array(depth).fill("zen-folder").join(" ");
-    const bg = `light-dark(
+    const color = `light-dark(
       color-mix(in srgb, ${light} ${lightPct}, transparent),
       color-mix(in srgb, ${dark}  ${darkPct},  transparent)
     )`;
-    return `${selector} {\n  background-color: ${bg};\n  border-radius: ${r}px;\n}`;
+    if (config.colorTreatment === "left-line") {
+      return `${selector} {\n  border-inline-start: 3px solid ${color};\n}`;
+    }
+    return `${selector} {\n  background-color: ${color};\n  border-radius: ${r}px;\n}`;
   });
 
   rules.push(
@@ -199,13 +222,12 @@ function folderHasActiveTab(folder) {
 // Attaches hover-expand handlers to a single zen-folder element within a
 // window. Idempotent: re-attaching after script re-paste is harmless because
 // the WeakSet guard prevents duplicate listeners.
-const _attachedFolders = new WeakSet();
 
 function attachHoverHandlers(folder) {
-  if (_attachedFolders.has(folder)) return;
-  _attachedFolders.add(folder);
+  if (state.attachedFolders.has(folder)) return;
+  state.attachedFolders.add(folder);
 
-  folder.addEventListener("mouseenter", (event) => {
+  const onMouseEnter = (event) => {
     if (!Services.prefs.getBoolPref("zen.crowd.folder.hoverExpandEnabled", true)) return;
     if (event.shiftKey) return;
     if (!folder.collapsed) return;
@@ -215,9 +237,9 @@ function attachHoverHandlers(folder) {
     if (!folderHasActiveTab(folder)) {
       folder.classList.add(HOVER_CLASS);
     }
-  });
+  };
 
-  folder.addEventListener("dragenter", () => {
+  const onDragEnter = () => {
     if (!Services.prefs.getBoolPref("zen.crowd.folder.hoverExpandEnabled", true)) return;
     const tabsContainer = folder.closest("#tabbrowser-tabs");
     if (tabsContainer) cancelCollapseTimers(tabsContainer);
@@ -226,23 +248,22 @@ function attachHoverHandlers(folder) {
     if (!folderHasActiveTab(folder)) {
       folder.classList.add(HOVER_CLASS);
     }
-  });
+  };
+
+  folder.addEventListener("mouseenter", onMouseEnter);
+  folder.addEventListener("dragenter", onDragEnter);
+  state.folderListeners.set(folder, { onMouseEnter, onDragEnter });
 }
 
 // Attaches hover handlers to all existing zen-folder elements in a window and
 // sets up a MutationObserver so newly added folders are handled automatically.
-const _windowObservers = new WeakMap();
-const _sidebarLeaveListeners = new WeakMap();
-const _sidebarEnterListeners = new WeakMap();
-const _dragEndListeners = new WeakMap();
 // Tracks pending stagger timers per tabsContainer so re-entry cancels them.
-const _collapseTimers = new WeakMap();
 
 function cancelCollapseTimers(tabsContainer) {
-  const timers = _collapseTimers.get(tabsContainer);
+  const timers = state.collapseTimers.get(tabsContainer);
   if (!timers) return;
   for (const t of timers) clearTimeout(t);
-  _collapseTimers.set(tabsContainer, []);
+  state.collapseTimers.set(tabsContainer, []);
 }
 
 function collapseAutoExpandedFolders(tabsContainer) {
@@ -257,7 +278,7 @@ function collapseAutoExpandedFolders(tabsContainer) {
       folder.collapsed = true;
     }, delay));
   });
-  _collapseTimers.set(tabsContainer, timers);
+  state.collapseTimers.set(tabsContainer, timers);
 }
 
 function setupHoverExpand(win) {
@@ -274,7 +295,7 @@ function setupHoverExpand(win) {
   // #tabbrowser-tabs, sweep all auto-expanded folders shut. This is the
   // only place auto-expanded folders get collapsed — no per-folder
   // timers, no reflow races.
-  const priorLeave = _sidebarLeaveListeners.get(tabsContainer);
+  const priorLeave = state.sidebarLeaveListeners.get(tabsContainer);
   if (priorLeave) {
     tabsContainer.removeEventListener("mouseleave", priorLeave);
   }
@@ -287,21 +308,21 @@ function setupHoverExpand(win) {
     collapseAutoExpandedFolders(tabsContainer);
   };
   tabsContainer.addEventListener("mouseleave", onSidebarLeave);
-  _sidebarLeaveListeners.set(tabsContainer, onSidebarLeave);
+  state.sidebarLeaveListeners.set(tabsContainer, onSidebarLeave);
 
   // If the pointer re-enters the sidebar before the stagger completes,
   // cancel any pending collapse timers.
-  const priorEnter = _sidebarEnterListeners.get(tabsContainer);
+  const priorEnter = state.sidebarEnterListeners.get(tabsContainer);
   if (priorEnter) {
     tabsContainer.removeEventListener("mouseenter", priorEnter);
   }
   const onSidebarEnter = () => cancelCollapseTimers(tabsContainer);
   tabsContainer.addEventListener("mouseenter", onSidebarEnter);
-  _sidebarEnterListeners.set(tabsContainer, onSidebarEnter);
+  state.sidebarEnterListeners.set(tabsContainer, onSidebarEnter);
 
   // After a drag ends, sweep auto-expanded folders. We always sweep here
   // since we can't reliably read pointer position in dragend.
-  const priorDragEnd = _dragEndListeners.get(tabsContainer);
+  const priorDragEnd = state.dragEndListeners.get(tabsContainer);
   if (priorDragEnd) {
     tabsContainer.removeEventListener("dragend", priorDragEnd);
   }
@@ -310,11 +331,11 @@ function setupHoverExpand(win) {
     collapseAutoExpandedFolders(tabsContainer);
   };
   tabsContainer.addEventListener("dragend", onDragEnd);
-  _dragEndListeners.set(tabsContainer, onDragEnd);
+  state.dragEndListeners.set(tabsContainer, onDragEnd);
 
   // Watch for new zen-folder elements added later.
-  if (_windowObservers.has(win)) {
-    _windowObservers.get(win).disconnect();
+  if (state.windowObservers.has(win)) {
+    state.windowObservers.get(win).disconnect();
   }
 
   const observer = new win.MutationObserver(mutations => {
@@ -332,7 +353,7 @@ function setupHoverExpand(win) {
   });
 
   observer.observe(tabsContainer, { childList: true, subtree: true });
-  _windowObservers.set(win, observer);
+  state.windowObservers.set(win, observer);
 }
 
 // ─── Pref observer & reinjection ─────────────────────────────────────────────
@@ -352,6 +373,7 @@ function observePrefs() {
     }
   };
   Services.prefs.addObserver("zen.crowd.folder.", observer);
+  state.prefObserver = observer;
 }
 
 // ─── Window enumeration & listener ───────────────────────────────────────────
@@ -373,7 +395,7 @@ function setup() {
   }
 
   // Listen for windows opened after script load.
-  const windowListener = {
+  state.windowListener = {
     onOpenWindow(xulWindow) {
       const win = xulWindow
         .QueryInterface(Components.interfaces.nsIInterfaceRequestor)
@@ -389,10 +411,54 @@ function setup() {
     onWindowTitleChange() {},
   };
 
-  Services.wm.addListener(windowListener);
+  Services.wm.addListener(state.windowListener);
 
   const config = readConfig();
   console.log(`[${STYLE_ID}] loaded — colorSource: ${config.colorSource}, hoverExpand: ${config.hoverExpandEnabled}`);
 }
 
+state.destroy = () => {
+  if (state.prefObserver) {
+    Services.prefs.removeObserver("zen.crowd.folder.", state.prefObserver);
+    state.prefObserver = null;
+  }
+
+  if (state.windowListener) {
+    Services.wm.removeListener(state.windowListener);
+    state.windowListener = null;
+  }
+
+  const windows = Services.wm.getEnumerator("navigator:browser");
+  while (windows.hasMoreElements()) {
+    const win = windows.getNext();
+    const doc = win.document;
+    doc.getElementById(STYLE_ID)?.remove();
+
+    const tabsContainer = doc.getElementById("tabbrowser-tabs");
+    if (!tabsContainer) continue;
+
+    cancelCollapseTimers(tabsContainer);
+
+    const onLeave = state.sidebarLeaveListeners.get(tabsContainer);
+    if (onLeave) tabsContainer.removeEventListener("mouseleave", onLeave);
+
+    const onEnter = state.sidebarEnterListeners.get(tabsContainer);
+    if (onEnter) tabsContainer.removeEventListener("mouseenter", onEnter);
+
+    const onDragEnd = state.dragEndListeners.get(tabsContainer);
+    if (onDragEnd) tabsContainer.removeEventListener("dragend", onDragEnd);
+
+    state.windowObservers.get(win)?.disconnect();
+
+    for (const folder of tabsContainer.querySelectorAll("zen-folder")) {
+      folder.classList.remove(HOVER_CLASS);
+      const listeners = state.folderListeners.get(folder);
+      if (!listeners) continue;
+      folder.removeEventListener("mouseenter", listeners.onMouseEnter);
+      folder.removeEventListener("dragenter", listeners.onDragEnter);
+    }
+  }
+};
+
 setup();
+})();

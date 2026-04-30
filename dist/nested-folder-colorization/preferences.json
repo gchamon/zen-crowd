@@ -26,6 +26,23 @@
     "placeholder": "#e74c3c,#e67e22,#27ae60,#2980b9,#8e44ad,#16a085"
   },
   {
+    "property": "zen.crowd.folder.colorTopLevelFolders",
+    "label": "Color top-level folders",
+    "type": "checkbox",
+    "defaultValue": true
+  },
+  {
+    "property": "zen.crowd.folder.colorTreatment",
+    "label": "Color treatment",
+    "type": "dropdown",
+    "defaultValue": "background",
+    "placeholder": "Background fill",
+    "options": [
+      { "label": "Background fill", "value": "background" },
+      { "label": "Left line", "value": "left-line" }
+    ]
+  },
+  {
     "property": "zen.crowd.folder.hoverExpandEnabled",
     "label": "Hover-expand folders",
     "type": "checkbox",
