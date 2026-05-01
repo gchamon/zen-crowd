@@ -35,6 +35,7 @@ const DEPTH_ATTR = "zen-crowd-depth";
 const TAB_UUID_KEY = "zenCrowdTabUuid";
 const PARENT_UUID_KEY = "zenCrowdParentTabUuid";
 const OLD_PARENT_ID_KEY = "zenCrowdParentTabId";
+const SNAPSHOT_PREF = "zen.crowd.subtab.restoreSnapshot";
 
 const SUBTAB_BRANCH = "zen.crowd.subtab.";
 const FOLDER_BRANCH = "zen.crowd.folder.";
@@ -54,6 +55,7 @@ const state = {
   removeWindowListener: null,
   removePrefObserver: null,
   enabled: true,
+  restoreReady: false,
 };
 
 globalThis[GLOBAL_KEY] = state;
@@ -196,6 +198,10 @@ function getCustomTabValue(win, tab, key) {
   } catch (_) { return null; }
 }
 
+function setTabUuid(win, tab, uuid) {
+  setCustomTabValue(win, tab, TAB_UUID_KEY, uuid);
+}
+
 function setCustomTabValue(win, tab, key, value) {
   try {
     win.SessionStore.setCustomTabValue(tab, key, value);
@@ -240,6 +246,85 @@ function clearStoredParentUuid(win, tab) {
 
 function clearOldStoredParentId(win, tab) {
   deleteCustomTabValue(win, tab, OLD_PARENT_ID_KEY);
+}
+
+// ─── Snapshot fallback ──────────────────────────────────────────────────────
+
+function tabUrl(tab) {
+  return tab.linkedBrowser?.currentURI?.spec || "";
+}
+
+function tabWorkspace(tab) {
+  return tab.getAttribute("zen-workspace-id") || "";
+}
+
+function readSnapshot() {
+  try {
+    const raw = Services.prefs.getStringPref(SNAPSHOT_PREF, "");
+    return raw ? JSON.parse(raw) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function writeSnapshot(snapshot) {
+  try {
+    Services.prefs.setStringPref(SNAPSHOT_PREF, JSON.stringify(snapshot));
+  } catch (e) {
+    console.warn(`[${STYLE_ID}] restore snapshot write failed`, e);
+  }
+}
+
+function snapshotMatchesWindow(snapshotWindow, win) {
+  if (!snapshotWindow?.tabs) return false;
+  const tabs = [...win.gBrowser.tabs];
+  if (snapshotWindow.tabs.length !== tabs.length) return false;
+  return snapshotWindow.tabs.every((savedTab, i) => {
+    const tab = tabs[i];
+    if (Boolean(savedTab.pinned) !== Boolean(tab.pinned)) return false;
+    if (savedTab.workspace && savedTab.workspace !== tabWorkspace(tab)) return false;
+    return !savedTab.url || !tabUrl(tab) || savedTab.url === tabUrl(tab);
+  });
+}
+
+function applySnapshotToWindow(win, snapshotWindow) {
+  if (!snapshotMatchesWindow(snapshotWindow, win)) return false;
+  const tabs = [...win.gBrowser.tabs];
+  snapshotWindow.tabs.forEach((savedTab, i) => {
+    if (!savedTab.uuid) return;
+    const tab = tabs[i];
+    if (!getCustomTabValue(win, tab, TAB_UUID_KEY)) {
+      setTabUuid(win, tab, savedTab.uuid);
+    }
+    if (savedTab.parentUuid && !getStoredParentUuid(win, tab)) {
+      setStoredParentUuid(win, tab, savedTab.parentUuid);
+    }
+  });
+  return true;
+}
+
+function updateSnapshot() {
+  if (!state.restoreReady) return;
+  const windows = lib.enumerateBrowserWindows().filter(win => win.gBrowser);
+  const snapshot = {
+    version: 1,
+    windows: windows.map(win => {
+      const s = state.windows.get(win);
+      return {
+        tabs: [...win.gBrowser.tabs].map(tab => {
+          const uuid = getCustomTabValue(win, tab, TAB_UUID_KEY);
+          return {
+            uuid,
+            parentUuid: uuid && s ? s.parentOf.get(uuid) || "" : "",
+            url: tabUrl(tab),
+            pinned: Boolean(tab.pinned),
+            workspace: tabWorkspace(tab),
+          };
+        }),
+      };
+    }),
+  };
+  writeSnapshot(snapshot);
 }
 
 // ─── Depth + DOM tagging ────────────────────────────────────────────────────
@@ -312,7 +397,10 @@ function onTabOpen(win, s, event) {
     if (!tab.isConnected) return;
     const opener = resolveOpener(win, s, tab);
     let tabUuid = ensureTabUuid(win, tab);
-    if (!opener) return;
+    if (!opener) {
+      updateSnapshot();
+      return;
+    }
 
     const parentUuid = ensureTabUuid(win, opener);
     if (tabUuid === parentUuid) {
@@ -323,6 +411,7 @@ function onTabOpen(win, s, event) {
     recordLink(s, tabUuid, parentUuid);
     setStoredParentUuid(win, tab, parentUuid);
     applyDepthAttr(tab, depthOf(s, tabUuid));
+    updateSnapshot();
   }, 0);
 }
 
@@ -345,6 +434,11 @@ function onTabClose(win, s, event) {
   }
   dropLink(s, tabUuid);
   clearStoredParentUuid(win, tab);
+  updateSnapshot();
+}
+
+function onTabMove(win) {
+  win.setTimeout(() => updateSnapshot(), 0);
 }
 
 // ─── Window setup / teardown ────────────────────────────────────────────────
@@ -361,9 +455,10 @@ function wouldCreateCycle(s, childUuid, parentUuid) {
   return false;
 }
 
-function rebuildFromSession(win, s) {
+function rebuildFromSession(win, s, snapshotWindow = null) {
   s.parentOf.clear();
   s.childrenOf.clear();
+  applySnapshotToWindow(win, snapshotWindow);
   const uuidToTab = new Map();
 
   for (const tab of win.gBrowser.tabs) {
@@ -402,6 +497,7 @@ function rebuildFromSession(win, s) {
   }
 
   retagAll(win, s);
+  updateSnapshot();
 }
 
 function captureOpenerForCreatedTab(win, s, tab, options) {
@@ -448,7 +544,7 @@ function unwrapTabCreation(win, s) {
   s.originalAddTrustedTab = null;
 }
 
-function attachToWindow(win) {
+function attachToWindow(win, { rebuild = state.restoreReady } = {}) {
   const config = readConfig();
   if (!config.enabled) {
     return;
@@ -456,15 +552,19 @@ function attachToWindow(win) {
   lib.injectStyle(win, STYLE_ID, buildCSS(win, config));
   const s = getWinState(win);
   wrapTabCreation(win, s);
-  rebuildFromSession(win, s);
+  if (rebuild) {
+    rebuildFromSession(win, s);
+  }
 
   const handlers = {
     onTabOpen: (e) => onTabOpen(win, s, e),
     onTabClose: (e) => onTabClose(win, s, e),
+    onTabMove: () => onTabMove(win),
   };
   const tc = win.gBrowser.tabContainer;
   tc.addEventListener("TabOpen", handlers.onTabOpen);
   tc.addEventListener("TabClose", handlers.onTabClose);
+  tc.addEventListener("TabMove", handlers.onTabMove);
   s.listeners = handlers;
 
   console.log(`[${STYLE_ID}] attached — ${s.parentOf.size} link(s) restored`);
@@ -478,6 +578,7 @@ function detachFromWindow(win) {
     if (s.listeners && tc) {
       tc.removeEventListener("TabOpen", s.listeners.onTabOpen);
       tc.removeEventListener("TabClose", s.listeners.onTabClose);
+      tc.removeEventListener("TabMove", s.listeners.onTabMove);
     }
     unwrapTabCreation(win, s);
     for (const tab of win.gBrowser?.tabs ?? []) {
@@ -509,7 +610,7 @@ function reapplyAll() {
 
 function setup() {
   for (const win of lib.enumerateBrowserWindows()) {
-    if (win.gBrowser) attachToWindow(win);
+    if (win.gBrowser) attachToWindow(win, { rebuild: false });
   }
   state.removeWindowListener = lib.addWindowOpenListener(attachToWindow);
 
@@ -521,6 +622,39 @@ function setup() {
   state.removePrefObserver = () => { removeSubtab(); removeFolder(); };
 
   console.log(`[${STYLE_ID}] loaded`);
+}
+
+async function waitForRestoreReady() {
+  const waits = [];
+  try { waits.push(SessionStore.promiseAllWindowsRestored); } catch (_) {}
+  try { waits.push(SessionStore.promiseInitialized); } catch (_) {}
+  for (const win of lib.enumerateBrowserWindows()) {
+    if (win.gZenStartup?.promiseInitialized) {
+      waits.push(win.gZenStartup.promiseInitialized);
+    }
+    if (win.gZenWorkspaces?.promiseInitialized) {
+      waits.push(win.gZenWorkspaces.promiseInitialized);
+    }
+  }
+  if (waits.length) {
+    await Promise.allSettled(waits);
+  }
+}
+
+async function rebuildAllAfterRestore() {
+  await waitForRestoreReady();
+  state.restoreReady = true;
+  const snapshot = readSnapshot();
+  const windows = lib.enumerateBrowserWindows().filter(win => win.gBrowser);
+  windows.forEach((win, index) => {
+    const config = readConfig();
+    if (!config.enabled) return;
+    lib.injectStyle(win, STYLE_ID, buildCSS(win, config));
+    const s = getWinState(win);
+    wrapTabCreation(win, s);
+    rebuildFromSession(win, s, snapshot?.windows?.[index] ?? null);
+  });
+  updateSnapshot();
 }
 
 state.destroy = () => {
@@ -535,4 +669,7 @@ state.destroy = () => {
 };
 
 setup();
+rebuildAllAfterRestore().catch(e => {
+  console.warn(`[${STYLE_ID}] restore rebuild failed`, e);
+});
 })();

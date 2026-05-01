@@ -25,6 +25,9 @@ two things:
 The relationship survives session restore via per-tab
 `SessionStore.setCustomTabValue` values: each tab gets
 `zenCrowdTabUuid`, and children store `zenCrowdParentTabUuid`.
+When restored tab custom values are unavailable at startup, the mod
+falls back to `zen.crowd.subtab.restoreSnapshot`, a conservative
+tab-order snapshot.
 
 ## Background
 

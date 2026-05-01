@@ -33,6 +33,10 @@ Carried forward from `-01`:
   `zenCrowdTabUuid` and `zenCrowdParentTabUuid`. The older
   `zenCrowdParentTabId` runtime-id value is migrated only when the
   old parent tab still exists in the current session.
+- **Restore fallback**: after session restore is ready, rebuild from
+  tab custom values first; if they are absent, restore tab UUIDs and
+  parent UUIDs from `zen.crowd.subtab.restoreSnapshot` when the
+  saved tab order still matches the restored window.
 - **Parent-close lifecycle**: promote children to roots, retag
   subtrees.
 - **Left-line accent**: cycles palette at every depth (no depth-7
@@ -78,6 +82,9 @@ New decisions for the implementation:
   resolve the opener (per `-01`'s decision), record the parent→child
   link in the in-memory map, persist via
   `SessionStore.setCustomTabValue`, and apply the depth attribute.
+- Delay the first hierarchy rebuild until `SessionStore`/Zen restore
+  promises settle. Before that point, attach styles and listeners but
+  do not assign replacement UUIDs to restored tabs.
 - Wrap `gBrowser.addTab` and `gBrowser.addTrustedTab` per window to
   capture explicit `ownerTab` and `relatedToCurrent` opener hints
   before `TabOpen` fires. Do not guess with bare `selectedTab` when
@@ -90,6 +97,10 @@ New decisions for the implementation:
   `gBrowser.tabs`, assign missing/duplicate tab UUIDs, drop invalid
   links whose parent tab no longer exists or would create a cycle,
   and apply depth attributes once.
+- Maintain a compact restore snapshot pref after opener-link changes,
+  parent promotion, root tab opens, tab closes, tab moves, and
+  successful rebuilds. The snapshot records tab UUID, parent UUID,
+  URL, pinned state, and workspace id by tab order.
 - Inject the depth-tinting CSS: full background tint and/or left-line
   accent per depth (cycling palette, `light-dark()`, translucent).
   Same palette as `src/nested-folder-colorization.js` so the two mods

@@ -35,7 +35,7 @@ Hovering a collapsed folder automatically expands it; moving the mouse away coll
 Tints each tab by its depth in the opener tree, so the parent/child relationship is visible at a glance.
 
 - A tab opened from a parent (middle-click, `target=_blank`, "Open Link in New Tab", `window.open`) gets `parent.depth + 1`
-- Survives session restore via `SessionStore.setCustomTabValue` per tab
+- Survives session restore via per-tab UUIDs, with a tab-order snapshot fallback
 - Closing a parent promotes its children to roots; their subtree retags at the new shallower depths
 - Visual prefs default to inheriting from the folder colorization mod's settings, so the two mods look consistent out of the box
 
