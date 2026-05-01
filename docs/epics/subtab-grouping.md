@@ -29,6 +29,10 @@ When restored tab custom values are unavailable at startup, the mod
 falls back to `zen.crowd.subtab.restoreSnapshot`, a conservative
 tab-order snapshot.
 
+Dragging tabs changes hierarchy intentionally: moved root tabs inherit
+the hierarchy level of the first valid tab immediately below the moved
+block after drop.
+
 ## Background
 
 The original `subtabs-in-subfolders` epic pursued a "folder-tab" — a
@@ -69,6 +73,8 @@ None yet — the spike will record them.
   tint via CSS, full background and/or left-line accent
 - Persist the parent→child relationship across session restore so
   tinting reconstructs without manual action
+- Reparent user-dragged tabs by inheriting the hierarchy level of the
+  tab immediately below the moved block
 - Define a non-destructive lifecycle when the parent tab closes:
   children become roots, their subtrees retag at the new shallower
   depths

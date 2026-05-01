@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ZEN_DIR="$HOME/.zen"
-INI="$ZEN_DIR/profiles.ini"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib.sh"
 
 # ─── Usage ────────────────────────────────────────────────────────────────────
 
@@ -30,14 +29,7 @@ EOF
     exit 1
 }
 
-PROFILE_ARGS=()
-for arg in "$@"; do
-    case "$arg" in
-        -h|--help) usage ;;
-        -*) echo "Unknown option: $arg" >&2; usage ;;
-        *) PROFILE_ARGS+=("$arg") ;;
-    esac
-done
+parse_profile_args usage "$@"
 
 # ─── Detect Zen app directory ─────────────────────────────────────────────────
 
@@ -87,20 +79,7 @@ install_autoconfig_app_files() {
 
 # ─── Prerequisites ────────────────────────────────────────────────────────────
 
-if [ ! -f "$INI" ]; then
-    echo "Error: $INI not found." >&2
-    exit 1
-fi
-
-if ! command -v yq &> /dev/null; then
-    echo "Error: yq is required but not installed." >&2
-    exit 1
-fi
-
-if ! command -v jq &> /dev/null; then
-    echo "Error: jq is required but not installed." >&2
-    exit 1
-fi
+check_profile_prereqs
 
 # Check and optionally install fx-autoconfig app-level files
 ZEN_APP_DIR="$(detect_zen_app_dir || true)"
@@ -114,62 +93,8 @@ fi
 
 # ─── Profile selection ────────────────────────────────────────────────────────
 
-mapfile -t PROFILE_LINES < <(yq --input-format ini '
-  with_entries(select(.key | test("^Profile\\d+$"))) |
-  to_entries |
-  .[] |
-  .value.Name + "|" + .value.Path + "|" + (.value.IsRelative // "1")
-' "$INI")
-
-if [ ${#PROFILE_LINES[@]} -eq 0 ]; then
-    echo "No profiles found in $INI" >&2
-    exit 1
-fi
-
-resolve_profile_path() {
-    local name="$1" path is_relative
-    for line in "${PROFILE_LINES[@]}"; do
-        IFS='|' read -r pname path is_relative <<< "$line"
-        if [ "$pname" = "$name" ]; then
-            if [ "$is_relative" = "1" ]; then
-                echo "$ZEN_DIR/$path"
-            else
-                echo "$path"
-            fi
-            return 0
-        fi
-    done
-    echo "Profile not found: $name" >&2
-    echo "Available profiles:" >&2
-    for line in "${PROFILE_LINES[@]}"; do
-        IFS='|' read -r pname path _ <<< "$line"
-        echo "  $pname ($path)" >&2
-    done
-    return 1
-}
-
-if [ ${#PROFILE_ARGS[@]} -gt 0 ]; then
-    SELECTED_PROFILES=("${PROFILE_ARGS[@]}")
-else
-    echo ""
-    echo "Available Zen profiles:"
-    i=1
-    for line in "${PROFILE_LINES[@]}"; do
-        IFS='|' read -r name path rel <<< "$line"
-        echo "  $i. $name ($path)"
-        i=$((i + 1))
-    done
-    echo ""
-    read -rp "Select profile number: " choice
-
-    if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -lt 1 ] || [ "$choice" -gt "${#PROFILE_LINES[@]}" ]; then
-        echo "Invalid selection." >&2
-        exit 1
-    fi
-
-    IFS='|' read -r selected_name _ _ <<< "${PROFILE_LINES[$((choice - 1))]}"
-    SELECTED_PROFILES=("$selected_name")
-fi
+load_profile_lines
+select_profiles
 
 # ─── Deploy to each selected profile ─────────────────────────────────────────
 

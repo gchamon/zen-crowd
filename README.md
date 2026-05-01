@@ -36,6 +36,7 @@ Tints each tab by its depth in the opener tree, so the parent/child relationship
 
 - A tab opened from a parent (middle-click, `target=_blank`, "Open Link in New Tab", `window.open`) gets `parent.depth + 1`
 - Survives session restore via per-tab UUIDs, with a tab-order snapshot fallback
+- Dragging a tab makes it inherit the hierarchy level of the tab immediately below it
 - Closing a parent promotes its children to roots; their subtree retags at the new shallower depths
 - Visual prefs default to inheriting from the folder colorization mod's settings, so the two mods look consistent out of the box
 
@@ -140,12 +141,11 @@ Re-run `bash deploy.sh` and restart Zen.
 
 ### Uninstall
 
-To remove a single mod:
-1. Delete its `chrome/JS/<name>.uc.js` from your profile
-2. Delete its `chrome/zen-themes/<id>/` directory
-3. Remove its entry from `zen-themes.json`
+```bash
+bash remove.sh
+```
 
-The two mod ids are `zen-crowd-folder-colorization` and `zen-crowd-subtab-grouping`. If you remove **both**, you can also delete `chrome/utils/zen-crowd-shared.sys.mjs`. Restart Zen after any removal.
+The script removes both zen-crowd mods from the selected profile, deletes their copied scripts and shared library, and removes their entries from `zen-themes.json`. It leaves fx-autoconfig in place because other userChrome scripts may use it.
 
 **Profile paths:**
 - Linux: `~/.zen/<profile-dir>/`

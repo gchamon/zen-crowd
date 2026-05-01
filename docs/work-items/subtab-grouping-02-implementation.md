@@ -101,6 +101,11 @@ New decisions for the implementation:
   parent promotion, root tab opens, tab closes, tab moves, and
   successful rebuilds. The snapshot records tab UUID, parent UUID,
   URL, pinned state, and workspace id by tab order.
+- On user drag reorder, make moved root tabs inherit the hierarchy
+  level of the first valid non-moved tab immediately below the moved
+  block after drop. If that reference tab is top-level, or no valid
+  reference exists, promote the moved root to top-level. Preserve any
+  descendants under the moved root and retag its subtree.
 - Inject the depth-tinting CSS: full background tint and/or left-line
   accent per depth (cycling palette, `light-dark()`, translucent).
   Same palette as `src/nested-folder-colorization.js` so the two mods

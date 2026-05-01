@@ -139,6 +139,7 @@ function getWinState(win) {
       listeners: null,
       originalAddTab: null,
       originalAddTrustedTab: null,
+      drag: null,
     };
     state.windows.set(win, s);
   }
@@ -381,6 +382,22 @@ function retagAll(win, s) {
   }
 }
 
+function isDescendantOfAny(s, childUuid, ancestorUuids) {
+  let cursor = childUuid;
+  const seen = new Set();
+  while (cursor && s.parentOf.has(cursor)) {
+    if (seen.has(cursor)) return false;
+    seen.add(cursor);
+    cursor = s.parentOf.get(cursor);
+    if (ancestorUuids.has(cursor)) return true;
+  }
+  return false;
+}
+
+function movedRootUuids(s, movedUuids) {
+  return [...movedUuids].filter(uuid => !movedUuids.has(s.parentOf.get(uuid)));
+}
+
 // ─── Event handlers ─────────────────────────────────────────────────────────
 
 function resolveOpener(win, s, tab) {
@@ -439,6 +456,77 @@ function onTabClose(win, s, event) {
 
 function onTabMove(win) {
   win.setTimeout(() => updateSnapshot(), 0);
+}
+
+function draggedTabs(win, tab) {
+  const selected = tab.multiselected ? win.gBrowser.selectedTabs : [tab];
+  return selected.filter(t => t?.isConnected);
+}
+
+function onDragStart(win, s, event) {
+  const tab = event.target?.closest?.("tab");
+  if (!tab || !win.gBrowser.tabContainer.contains(tab)) return;
+  const tabs = draggedTabs(win, tab);
+  const movedUuids = new Set(tabs.map(t => ensureTabUuid(win, t)));
+  if (!movedUuids.size) return;
+  s.drag = { movedUuids };
+}
+
+function findBelowReferenceTab(win, s, movedUuids) {
+  const tabs = [...win.gBrowser.tabs];
+  const movedIndexes = tabs
+    .map((tab, index) => movedUuids.has(ensureTabUuid(win, tab)) ? index : -1)
+    .filter(index => index !== -1);
+  if (!movedIndexes.length) return null;
+
+  for (let i = Math.max(...movedIndexes) + 1; i < tabs.length; i++) {
+    const uuid = ensureTabUuid(win, tabs[i]);
+    if (movedUuids.has(uuid)) continue;
+    if (isDescendantOfAny(s, uuid, movedUuids)) continue;
+    return tabs[i];
+  }
+  return null;
+}
+
+function applyDragHierarchyPolicy(win, s) {
+  const movedUuids = s.drag?.movedUuids;
+  s.drag = null;
+  if (!movedUuids?.size) {
+    updateSnapshot();
+    return;
+  }
+
+  const belowTab = findBelowReferenceTab(win, s, movedUuids);
+  const inheritedParentUuid = belowTab
+    ? s.parentOf.get(ensureTabUuid(win, belowTab)) || null
+    : null;
+
+  for (const rootUuid of movedRootUuids(s, movedUuids)) {
+    const rootTab = findTabByUuid(win, rootUuid);
+    if (!rootTab) continue;
+    if (
+      inheritedParentUuid &&
+      inheritedParentUuid !== rootUuid &&
+      !movedUuids.has(inheritedParentUuid) &&
+      !wouldCreateCycle(s, rootUuid, inheritedParentUuid)
+    ) {
+      recordLink(s, rootUuid, inheritedParentUuid);
+      setStoredParentUuid(win, rootTab, inheritedParentUuid);
+    } else {
+      dropLink(s, rootUuid);
+      clearStoredParentUuid(win, rootTab);
+    }
+    retagSubtree(win, s, rootUuid);
+  }
+
+  updateSnapshot();
+}
+
+function scheduleDragHierarchyPolicy(win, s) {
+  if (!s.drag) return;
+  if (s.drag.scheduled) return;
+  s.drag.scheduled = true;
+  win.setTimeout(() => applyDragHierarchyPolicy(win, s), 0);
 }
 
 // ─── Window setup / teardown ────────────────────────────────────────────────
@@ -560,11 +648,17 @@ function attachToWindow(win, { rebuild = state.restoreReady } = {}) {
     onTabOpen: (e) => onTabOpen(win, s, e),
     onTabClose: (e) => onTabClose(win, s, e),
     onTabMove: () => onTabMove(win),
+    onDragStart: (e) => onDragStart(win, s, e),
+    onDrop: () => scheduleDragHierarchyPolicy(win, s),
+    onDragEnd: () => scheduleDragHierarchyPolicy(win, s),
   };
   const tc = win.gBrowser.tabContainer;
   tc.addEventListener("TabOpen", handlers.onTabOpen);
   tc.addEventListener("TabClose", handlers.onTabClose);
   tc.addEventListener("TabMove", handlers.onTabMove);
+  tc.addEventListener("dragstart", handlers.onDragStart);
+  tc.addEventListener("drop", handlers.onDrop);
+  tc.addEventListener("dragend", handlers.onDragEnd);
   s.listeners = handlers;
 
   console.log(`[${STYLE_ID}] attached — ${s.parentOf.size} link(s) restored`);
@@ -579,6 +673,9 @@ function detachFromWindow(win) {
       tc.removeEventListener("TabOpen", s.listeners.onTabOpen);
       tc.removeEventListener("TabClose", s.listeners.onTabClose);
       tc.removeEventListener("TabMove", s.listeners.onTabMove);
+      tc.removeEventListener("dragstart", s.listeners.onDragStart);
+      tc.removeEventListener("drop", s.listeners.onDrop);
+      tc.removeEventListener("dragend", s.listeners.onDragEnd);
     }
     unwrapTabCreation(win, s);
     for (const tab of win.gBrowser?.tabs ?? []) {
