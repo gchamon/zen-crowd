@@ -1,18 +1,23 @@
 # zen-crowd
 
+Internet browsing requires [great peace of mind](https://zenceomaintenance.wordpress.com/2018/03/13/assembly-of-japanese-bicycle-take-great-peace-of-mind/).
+
 A mod for [Zen Browser](https://zen-browser.app/) that improves the visual hierarchy and interaction of nested folders in the tab sidebar.
 
 <img src="docs/assets/crows-in-early-winter.png" alt="Detail from Crows in Early Winter by Kishi Chikudo">
 
 <sub>Detail after Kishi Chikudo (Japanese, 1826-1897), <em>Crows in Early Winter</em>, ca. 1895. Ink and color on gold-leaf ground; pair of six-panel folding screens. Santa Barbara Museum of Art, museum purchase with funds provided by Lord and Lady Ridley-Tree, Priscilla Giesen, and special funds, 2002.7.1-2. Source identification: Santa Barbara Museum of Art, <a href="https://www.sbma.net/exhibitions/pathsofgold"><em>Paths of Gold: Japanese Landscape and Narrative Paintings from the Collection.</em></a> The image was enhanced using Gemini. The original image can be found <a href="https://i.pinimg.com/736x/43/44/f9/4344f9321754eca845b19470682ffd58.jpg">here</a>.</sub>
 
-<img src="docs/assets/screenshot.png" alt="Zen Browser sidebar showing zen-crowd folder and subtab coloring">
 
 ## About the logo
 
 These are crows. Crows are [zen birds](https://www.lionsroar.com/buddhas-birds/). This project also deals with *crow*ded folders, with many nested folders and items. I think the reference is nice :)
 
 ## What it does
+
+A screenshot sometimes is worth a thousand feature descriptions:
+
+<img src="docs/assets/screenshot.png" alt="Zen Browser sidebar showing zen-crowd folder and subtab coloring">
 
 ### Nested Folder Colorization
 Applies color to `zen-folder` elements based on their nesting depth, making it easy to visually trace the folder hierarchy at a glance.
