@@ -39,7 +39,8 @@
     "placeholder": "Background fill",
     "options": [
       { "label": "Background fill", "value": "background" },
-      { "label": "Left line", "value": "left-line" }
+      { "label": "Left line", "value": "left-line" },
+      { "label": "Background + left line", "value": "both" }
     ]
   },
   {

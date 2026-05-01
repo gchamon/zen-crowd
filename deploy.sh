@@ -11,7 +11,7 @@ usage() {
     cat >&2 <<EOF
 Usage: $(basename "$0") [OPTIONS] [PROFILE...]
 
-Deploy the zen-crowd-folder-colorization mod to one or more Zen Browser profiles.
+Deploy the zen-crowd mods (folder colorization + subtab grouping) to one or more Zen Browser profiles.
 
 With no PROFILE arguments, an interactive picker is shown.
 
@@ -195,29 +195,57 @@ deploy_to_profile() {
     fi
 
     local THEMES_DIR="$CHROME_DIR/zen-themes"
-    local MOD_DIR="$THEMES_DIR/zen-crowd-folder-colorization"
     local JS_DIR="$CHROME_DIR/JS"
+    local UTILS_DIR="$CHROME_DIR/utils"
+    local FOLDER_MOD_DIR="$THEMES_DIR/zen-crowd-folder-colorization"
+    local SUBTAB_MOD_DIR="$THEMES_DIR/zen-crowd-subtab-grouping"
 
-    mkdir -p "$MOD_DIR"
-    mkdir -p "$JS_DIR"
+    mkdir -p "$FOLDER_MOD_DIR" "$SUBTAB_MOD_DIR" "$JS_DIR" "$UTILS_DIR"
 
-    cp "$SCRIPT_DIR/dist/nested-folder-colorization/zen-mod.json" "$MOD_DIR/"
-    cp "$SCRIPT_DIR/dist/nested-folder-colorization/preferences.json" "$MOD_DIR/"
-    cp "$SCRIPT_DIR/dist/nested-folder-colorization/chrome.css" "$MOD_DIR/"
+    # Shared library — both mods import it via
+    # chrome://userchromejs/content/zen-crowd-shared.sys.mjs
+    cp "$SCRIPT_DIR/src/lib/zen-crowd-shared.sys.mjs" "$UTILS_DIR/zen-crowd-shared.sys.mjs"
 
-    # Deploy JS as *.uc.js so fx-autoconfig picks it up; remove old .js if present
+    # Folder colorization mod
+    cp "$SCRIPT_DIR/dist/nested-folder-colorization/zen-mod.json" "$FOLDER_MOD_DIR/"
+    cp "$SCRIPT_DIR/dist/nested-folder-colorization/preferences.json" "$FOLDER_MOD_DIR/"
+    cp "$SCRIPT_DIR/dist/nested-folder-colorization/chrome.css" "$FOLDER_MOD_DIR/"
     cp "$SCRIPT_DIR/src/nested-folder-colorization.js" "$JS_DIR/nested-folder-colorization.uc.js"
     rm -f "$JS_DIR/nested-folder-colorization.js"
+
+    # Subtab grouping mod
+    cp "$SCRIPT_DIR/dist/subtab-grouping/zen-mod.json" "$SUBTAB_MOD_DIR/"
+    cp "$SCRIPT_DIR/dist/subtab-grouping/preferences.json" "$SUBTAB_MOD_DIR/"
+    cp "$SCRIPT_DIR/dist/subtab-grouping/chrome.css" "$SUBTAB_MOD_DIR/"
+    cp "$SCRIPT_DIR/src/subtab-grouping.js" "$JS_DIR/subtab-grouping.uc.js"
 
     local ZEN_THEMES_JSON="$PROFILE_PATH/zen-themes.json"
     if [ ! -f "$ZEN_THEMES_JSON" ]; then
         echo '{}' > "$ZEN_THEMES_JSON"
     fi
-    jq '. + {"zen-crowd-folder-colorization": {"id": "zen-crowd-folder-colorization", "name": "Nested Folder Colorization", "enabled": true, "version": "1.0.0", "description": "Colorizes nested folders by depth and adds hover-expand behavior.", "preferences": true}}' \
+    jq '. + {
+            "zen-crowd-folder-colorization": {
+                "id": "zen-crowd-folder-colorization",
+                "name": "Nested Folder Colorization",
+                "enabled": true,
+                "version": "1.0.0",
+                "description": "Colorizes nested folders by depth and adds hover-expand behavior.",
+                "preferences": true
+            },
+            "zen-crowd-subtab-grouping": {
+                "id": "zen-crowd-subtab-grouping",
+                "name": "Subtab Grouping",
+                "enabled": true,
+                "version": "1.0.0",
+                "description": "Tints tabs by opener depth so the subtab tree is visible at a glance.",
+                "preferences": true
+            }
+        }' \
         "$ZEN_THEMES_JSON" > "$ZEN_THEMES_JSON.tmp" && mv "$ZEN_THEMES_JSON.tmp" "$ZEN_THEMES_JSON"
 
-    echo "  Mod metadata    -> $MOD_DIR"
-    echo "  JS script       -> $JS_DIR/nested-folder-colorization.uc.js"
+    echo "  Shared lib      -> $UTILS_DIR/zen-crowd-shared.sys.mjs"
+    echo "  Folder mod      -> $FOLDER_MOD_DIR (+ $JS_DIR/nested-folder-colorization.uc.js)"
+    echo "  Subtab mod      -> $SUBTAB_MOD_DIR (+ $JS_DIR/subtab-grouping.uc.js)"
     echo "  zen-themes.json -> $ZEN_THEMES_JSON"
 }
 

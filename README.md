@@ -5,6 +5,8 @@ A mod for [Zen Browser](https://zen-browser.app/) that improves the visual hiera
 <img src="docs/assets/crows-in-early-winter.png" alt="Detail from Crows in Early Winter by Kishi Chikudo">
 <sub>Detail after Kishi Chikudo (Japanese, 1826-1897), <em>Crows in Early Winter</em>, ca. 1895. Ink and color on gold-leaf ground; pair of six-panel folding screens. Santa Barbara Museum of Art, museum purchase with funds provided by Lord and Lady Ridley-Tree, Priscilla Giesen, and special funds, 2002.7.1-2. Source identification: Santa Barbara Museum of Art, <a href="https://www.sbma.net/exhibitions/pathsofgold"><em>Paths of Gold: Japanese Landscape and Narrative Paintings from the Collection.</em></a> The image was enhanced using Gemini. The original image can be found <a href="https://i.pinimg.com/736x/43/44/f9/4344f9321754eca845b19470682ffd58.jpg">here</a>.</sub>
 
+<img src="docs/assets/screenshot.png" alt="Zen Browser sidebar showing zen-crowd folder and subtab coloring">
+
 ## About the logo
 
 These are crows. Crows are [zen birds](https://www.lionsroar.com/buddhas-birds/). This project also deals with *crow*ded folders, with many nested folders and items. I think the reference is nice :)
@@ -29,16 +31,28 @@ Hovering a collapsed folder automatically expands it; moving the mouse away coll
 - Folders manually expanded by the user before hovering stay open
 - Moving the cursor from a parent into a child folder does not flicker the parent shut
 
+### Subtab Grouping
+Tints each tab by its depth in the opener tree, so the parent/child relationship is visible at a glance.
+
+- A tab opened from a parent (middle-click, `target=_blank`, "Open Link in New Tab", `window.open`) gets `parent.depth + 1`
+- Survives session restore via `SessionStore.setCustomTabValue` per tab
+- Closing a parent promotes its children to roots; their subtree retags at the new shallower depths
+- Visual prefs default to inheriting from the folder colorization mod's settings, so the two mods look consistent out of the box
+
 ## Project structure
 
 ```
 ├── src/
-│   └── nested-folder-colorization.js   # Development source (Browser Console paste or fx-autoconfig)
+│   ├── lib/
+│   │   └── zen-crowd-shared.sys.mjs    # Shared helpers (palette, prefs, windows)
+│   ├── nested-folder-colorization.js   # Folder colorization mod source
+│   └── subtab-grouping.js              # Subtab grouping mod source
 ├── dist/
-│   └── nested-folder-colorization/     # Zen mod package (zen-themes/ + JS/)
-│       ├── zen-mod.json                # Mod metadata
-│       ├── preferences.json            # Settings UI manifest
-│       └── chrome.css                  # Placeholder (all styling is JS-injected)
+│   ├── nested-folder-colorization/     # Zen mod package
+│   │   ├── zen-mod.json                # Mod metadata
+│   │   ├── preferences.json            # Settings UI manifest
+│   │   └── chrome.css                  # Placeholder (all styling is JS-injected)
+│   └── subtab-grouping/                # Zen mod package (same shape)
 ├── spikes/                             # Feasibility proof-of-concepts from early exploration
 ├── docs/
 │   ├── work-items/                     # Executable planning units
@@ -51,7 +65,9 @@ Hovering a collapsed folder automatically expands it; moving the mouse away coll
 
 ## Configuration
 
-When installed as a Zen mod, settings are surfaced in **Settings → Zen Mods → Configure**:
+When installed as a Zen mod, settings are surfaced in **Settings → Zen Mods → Configure**.
+
+### Nested Folder Colorization
 
 | Setting | Type | Default |
 |---|---|---|
@@ -64,7 +80,22 @@ When installed as a Zen mod, settings are surfaced in **Settings → Zen Mods �
 | Tint opacity — dark theme | string (0–100) | 22 |
 | Folder border radius | string (px) | 6 |
 
-Changes apply immediately across all open windows without restart.
+### Subtab Grouping
+
+All visual prefs default to **blank**, meaning "inherit from the folder colorization mod's setting." Override any of them to break the link.
+
+| Setting | Type | Default |
+|---|---|---|
+| Enable subtab grouping | checkbox | true |
+| Color source | dropdown | (inherit) |
+| Custom base color | string | (inherit) |
+| Custom colors | string | (inherit) |
+| Color treatment | dropdown | (inherit) |
+| Tint opacity — light theme | string (0–100) | (inherit) |
+| Tint opacity — dark theme | string (0–100) | (inherit) |
+| Border radius | string (px) | (inherit) |
+
+Changes to either mod apply immediately across all open windows without restart.
 
 ## Installation
 
@@ -88,9 +119,10 @@ The script will:
 1. Check for and optionally install fx-autoconfig application-level files (requires `sudo`)
 2. List profiles from `~/.zen/profiles.ini` (Linux) or `~/Library/Application Support/zen/profiles.ini` (macOS)
 3. Verify the selected profile has fx-autoconfig profile-side files
-4. Copy mod metadata → `chrome/zen-themes/zen-crowd-folder-colorization/`
-5. Copy the script → `chrome/JS/nested-folder-colorization.uc.js`
-6. Register the mod in `zen-themes.json`
+4. Copy the shared library → `chrome/utils/zen-crowd-shared.sys.mjs`
+5. Copy mod metadata for both mods → `chrome/zen-themes/zen-crowd-folder-colorization/` and `chrome/zen-themes/zen-crowd-subtab-grouping/`
+6. Copy both scripts → `chrome/JS/nested-folder-colorization.uc.js` and `chrome/JS/subtab-grouping.uc.js`
+7. Register both mods in `zen-themes.json`
 
 **First install only:** clear the startup cache before restarting — open `about:support` → **Clear startup cache**, then restart Zen.
 
@@ -99,6 +131,7 @@ The script will:
 Open the Browser Console (Ctrl+Shift+J) and look for:
 ```
 [zen-crowd-folder-colorization] loaded — colorSource: palette, hoverExpand: true
+[zen-crowd-subtab-grouping] loaded
 ```
 
 ### Update
@@ -107,10 +140,12 @@ Re-run `bash deploy.sh` and restart Zen.
 
 ### Uninstall
 
-1. Delete `chrome/JS/nested-folder-colorization.uc.js` from your profile
-2. Delete `chrome/zen-themes/zen-crowd-folder-colorization/` from your profile
-3. Remove the `zen-crowd-folder-colorization` entry from `zen-themes.json`
-4. Restart Zen
+To remove a single mod:
+1. Delete its `chrome/JS/<name>.uc.js` from your profile
+2. Delete its `chrome/zen-themes/<id>/` directory
+3. Remove its entry from `zen-themes.json`
+
+The two mod ids are `zen-crowd-folder-colorization` and `zen-crowd-subtab-grouping`. If you remove **both**, you can also delete `chrome/utils/zen-crowd-shared.sys.mjs`. Restart Zen after any removal.
 
 **Profile paths:**
 - Linux: `~/.zen/<profile-dir>/`
@@ -124,14 +159,16 @@ Re-run `bash deploy.sh` and restart Zen.
 
 ### Ephemeral loading
 
-Paste `src/nested-folder-colorization.js` into the Browser Console (Ctrl+Shift+J) and press Enter. Re-pasting replaces the previous injection cleanly — no restart needed.
+Paste `src/nested-folder-colorization.js` or `src/subtab-grouping.js` into the Browser Console (Ctrl+Shift+J) and press Enter. Re-pasting replaces the previous injection cleanly — no restart needed.
+
+Note: both source files import `chrome://userchromejs/content/zen-crowd-shared.sys.mjs`, so paste-loading requires the shared module to already be installed in `chrome/utils/` (i.e. you've already run `deploy.sh` once on the profile).
 
 ## Roadmap
 
 - [x] Nested folder colorization by depth
 - [x] Hover-expand / hover-collapse behavior
 - [x] Zen native mod settings UI integration
-- [ ] Subtabs open in subfolders (when opening a tab from another tab, place it in a subfolder; clicking the folder header opens the original tab)
+- [x] Subtab grouping by opener depth
 
 ## License
 
