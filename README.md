@@ -2,7 +2,7 @@
 
 Internet browsing requires [great peace of mind](https://zenceomaintenance.wordpress.com/2018/03/13/assembly-of-japanese-bicycle-take-great-peace-of-mind/).
 
-A mod for [Zen Browser](https://zen-browser.app/) that improves the visual hierarchy and interaction of nested folders in the tab sidebar.
+A mod for [Zen Browser](https://zen-browser.app/) that improves the visual hierarchy and interaction of nested folders and tabs in the tab sidebar.
 
 <img src="docs/assets/crows-in-early-winter.png" alt="Detail from Crows in Early Winter by Kishi Chikudo">
 
