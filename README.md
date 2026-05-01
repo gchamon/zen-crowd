@@ -46,6 +46,60 @@ Tints each tab by its depth in the opener tree, so the parent/child relationship
 - Closing a parent promotes its children to roots; their subtree retags at the new shallower depths
 - Visual prefs default to inheriting from the folder colorization mod's settings, so the two mods look consistent out of the box
 
+## Installation
+
+### Prerequisites
+
+1. **fx-autoconfig** — required for the mod JS to execute. `deploy.sh` installs both the application-level files (with `sudo`) and the profile-side boot files automatically on first run.
+
+2. [**yq**](https://github.com/mikefarah/yq) and **jq** — required by `deploy.sh`:
+   ```bash
+   sudo pacman -S go-yq jq  # Arch
+   brew install yq jq       # macOS
+   ```
+
+### Install
+
+```bash
+bash deploy.sh
+```
+
+The script will:
+1. Check for and optionally install fx-autoconfig application-level files (requires `sudo`)
+2. List profiles from `~/.zen/profiles.ini` (Linux) or `~/Library/Application Support/zen/profiles.ini` (macOS)
+3. Verify the selected profile has fx-autoconfig profile-side files
+4. Copy the shared library → `chrome/utils/zen-crowd-shared.sys.mjs`
+5. Copy mod metadata for both mods → `chrome/zen-themes/zen-crowd-folder-colorization/` and `chrome/zen-themes/zen-crowd-subtab-grouping/`
+6. Copy both scripts → `chrome/JS/nested-folder-colorization.uc.js` and `chrome/JS/subtab-grouping.uc.js`
+7. Register both mods in `zen-themes.json`
+
+**First install only:** clear the startup cache before restarting — open `about:support` → **Clear startup cache**, then restart Zen.
+
+### Verify
+
+Open the Browser Console (Ctrl+Shift+J) and look for:
+```
+[zen-crowd-folder-colorization] loaded — colorSource: palette, hoverExpand: true
+[zen-crowd-subtab-grouping] loaded
+```
+
+### Update
+
+Re-run `bash deploy.sh` and restart Zen.
+
+### Uninstall
+
+```bash
+bash remove.sh
+```
+
+The script removes both zen-crowd mods from the selected profile, deletes their copied scripts and shared library, and removes their entries from `zen-themes.json`. It leaves fx-autoconfig in place because other userChrome scripts may use it.
+
+**Profile paths:**
+- Linux: `~/.zen/<profile-dir>/`
+- macOS: `~/Library/Application Support/zen/<profile-dir>/`
+
+
 ## Project structure
 
 ```
@@ -103,59 +157,6 @@ All visual prefs default to **blank**, meaning "inherit from the folder coloriza
 | Border radius | string (px) | (inherit) |
 
 Changes to either mod apply immediately across all open windows without restart.
-
-## Installation
-
-### Prerequisites
-
-1. **fx-autoconfig** — required for the mod JS to execute. `deploy.sh` installs both the application-level files (with `sudo`) and the profile-side boot files automatically on first run.
-
-2. **yq** and **jq** — required by `deploy.sh`:
-   ```bash
-   sudo pacman -S yq jq     # Arch
-   brew install yq jq       # macOS
-   ```
-
-### Install
-
-```bash
-bash deploy.sh
-```
-
-The script will:
-1. Check for and optionally install fx-autoconfig application-level files (requires `sudo`)
-2. List profiles from `~/.zen/profiles.ini` (Linux) or `~/Library/Application Support/zen/profiles.ini` (macOS)
-3. Verify the selected profile has fx-autoconfig profile-side files
-4. Copy the shared library → `chrome/utils/zen-crowd-shared.sys.mjs`
-5. Copy mod metadata for both mods → `chrome/zen-themes/zen-crowd-folder-colorization/` and `chrome/zen-themes/zen-crowd-subtab-grouping/`
-6. Copy both scripts → `chrome/JS/nested-folder-colorization.uc.js` and `chrome/JS/subtab-grouping.uc.js`
-7. Register both mods in `zen-themes.json`
-
-**First install only:** clear the startup cache before restarting — open `about:support` → **Clear startup cache**, then restart Zen.
-
-### Verify
-
-Open the Browser Console (Ctrl+Shift+J) and look for:
-```
-[zen-crowd-folder-colorization] loaded — colorSource: palette, hoverExpand: true
-[zen-crowd-subtab-grouping] loaded
-```
-
-### Update
-
-Re-run `bash deploy.sh` and restart Zen.
-
-### Uninstall
-
-```bash
-bash remove.sh
-```
-
-The script removes both zen-crowd mods from the selected profile, deletes their copied scripts and shared library, and removes their entries from `zen-themes.json`. It leaves fx-autoconfig in place because other userChrome scripts may use it.
-
-**Profile paths:**
-- Linux: `~/.zen/<profile-dir>/`
-- macOS: `~/Library/Application Support/zen/<profile-dir>/`
 
 ## Development
 
