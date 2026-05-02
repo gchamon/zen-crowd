@@ -39,6 +39,12 @@ Carried forward from `-01`:
   saved tab order still matches the restored window.
 - **Parent-close lifecycle**: promote children to roots, retag
   subtrees.
+- **Context menu actions**: add explicit right-click actions for
+  native Zen folder copying and tree closing. "Convert tab to folder"
+  creates URL copies for the clicked tab plus all saved descendants,
+  then groups the copies. "Create folder for subtabs" copies only
+  saved descendants. "Convert folder to tabs" copies a native folder's
+  contents back out as regular tabs. Originals stay in place.
 - **Left-line accent**: cycles palette at every depth (no depth-7
   cap).
 
@@ -106,6 +112,14 @@ New decisions for the implementation:
   block after drop. If that reference tab is top-level, or no valid
   reference exists, promote the moved root to top-level. Preserve any
   descendants under the moved root and retag its subtree.
+- Inject idempotent context-menu items for: "Convert tab to folder",
+  "Create folder for subtabs", "Convert folder to tabs", and "Close
+  tab and subtabs". Folder actions create URL-copy tabs before calling
+  Zen's native `gZenFolders.createFolder`. Root folders are created
+  without `insertAfter`, so Zen places them in its native folder area;
+  nested subtab folders use `insertAfter` only against copied tabs that
+  already live inside a native folder. Original tabs and native folders
+  are not moved or removed.
 - Inject the depth-tinting CSS: full background tint and/or left-line
   accent per depth (cycling palette, `light-dark()`, translucent).
   Same palette as `src/nested-folder-colorization.js` so the two mods
@@ -144,8 +158,9 @@ New decisions for the implementation:
   visual conflicts; both signals remain legible.
 - The file imports nothing Sidebery-specific and does not reach
   into any extension's internals.
-- Tabs are never moved into the pinned region or into a
-  `zen-folder` by this mod.
+- Existing tabs are never moved into the pinned region or into a
+  `zen-folder` by this mod. Native folder context-menu actions operate
+  on URL-copy tabs.
 
 ## Packaging
 

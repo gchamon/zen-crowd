@@ -130,6 +130,7 @@ deploy_to_profile() {
     # Shared library — both mods import it via
     # chrome://userchromejs/content/zen-crowd-shared.sys.mjs
     cp "$SCRIPT_DIR/src/lib/zen-crowd-shared.sys.mjs" "$UTILS_DIR/zen-crowd-shared.sys.mjs"
+    cp "$SCRIPT_DIR/src/lib/zen-crowd-subtab-policy.sys.mjs" "$UTILS_DIR/zen-crowd-subtab-policy.sys.mjs"
 
     # Folder colorization mod
     cp "$SCRIPT_DIR/dist/nested-folder-colorization/zen-mod.json" "$FOLDER_MOD_DIR/"
@@ -168,7 +169,7 @@ deploy_to_profile() {
         }' \
         "$ZEN_THEMES_JSON" > "$ZEN_THEMES_JSON.tmp" && mv "$ZEN_THEMES_JSON.tmp" "$ZEN_THEMES_JSON"
 
-    echo "  Shared lib      -> $UTILS_DIR/zen-crowd-shared.sys.mjs"
+    echo "  Shared libs     -> $UTILS_DIR/zen-crowd-shared.sys.mjs, $UTILS_DIR/zen-crowd-subtab-policy.sys.mjs"
     echo "  Folder mod      -> $FOLDER_MOD_DIR (+ $JS_DIR/nested-folder-colorization.uc.js)"
     echo "  Subtab mod      -> $SUBTAB_MOD_DIR (+ $JS_DIR/subtab-grouping.uc.js)"
     echo "  zen-themes.json -> $ZEN_THEMES_JSON"

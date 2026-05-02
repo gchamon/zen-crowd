@@ -63,6 +63,7 @@ remove_from_profile() {
     rm -f "$JS_DIR/nested-folder-colorization.js"
     rm -f "$JS_DIR/subtab-grouping.uc.js"
     rm -f "$UTILS_DIR/zen-crowd-shared.sys.mjs"
+    rm -f "$UTILS_DIR/zen-crowd-subtab-policy.sys.mjs"
 
     if [ -f "$ZEN_THEMES_JSON" ]; then
         jq 'del(
@@ -76,7 +77,7 @@ remove_from_profile() {
     echo "  Removed folder mod theme dir -> $FOLDER_MOD_DIR"
     echo "  Removed subtab mod theme dir -> $SUBTAB_MOD_DIR"
     echo "  Removed scripts              -> $JS_DIR/nested-folder-colorization.uc.js, $JS_DIR/subtab-grouping.uc.js"
-    echo "  Removed shared lib           -> $UTILS_DIR/zen-crowd-shared.sys.mjs"
+    echo "  Removed shared libs          -> $UTILS_DIR/zen-crowd-shared.sys.mjs, $UTILS_DIR/zen-crowd-subtab-policy.sys.mjs"
 }
 
 for profile_name in "${SELECTED_PROFILES[@]}"; do

@@ -28,6 +28,9 @@
 const lib = ChromeUtils.importESModule(
   "chrome://userchromejs/content/zen-crowd-shared.sys.mjs"
 );
+const policy = ChromeUtils.importESModule(
+  "chrome://userchromejs/content/zen-crowd-subtab-policy.sys.mjs"
+);
 
 const GLOBAL_KEY = "__zenCrowdSubtabGrouping";
 const STYLE_ID = "zen-crowd-subtab-grouping";
@@ -36,6 +39,11 @@ const TAB_UUID_KEY = "zenCrowdTabUuid";
 const PARENT_UUID_KEY = "zenCrowdParentTabUuid";
 const OLD_PARENT_ID_KEY = "zenCrowdParentTabId";
 const SNAPSHOT_PREF = "zen.crowd.subtab.restoreSnapshot";
+const MENU_SEPARATOR_ID = "zen-crowd-subtab-menu-separator";
+const MENU_CONVERT_ID = "zen-crowd-convert-tab-to-folder";
+const MENU_SUBTABS_ID = "zen-crowd-create-folder-for-subtabs";
+const MENU_CLOSE_TREE_ID = "zen-crowd-close-tab-and-subtabs";
+const MENU_FOLDER_TO_TABS_ID = "zen-crowd-convert-folder-to-tabs";
 
 const SUBTAB_BRANCH = "zen.crowd.subtab.";
 const FOLDER_BRANCH = "zen.crowd.folder.";
@@ -137,9 +145,12 @@ function getWinState(win) {
       childrenOf: new Map(),
       capturedOpeners: new WeakMap(),
       listeners: null,
+      menu: null,
+      folderMenu: null,
       originalAddTab: null,
       originalAddTrustedTab: null,
       drag: null,
+      contextFolder: null,
     };
     state.windows.set(win, s);
   }
@@ -147,36 +158,11 @@ function getWinState(win) {
 }
 
 function recordLink(s, childUuid, parentUuid) {
-  const cid = childUuid, pid = parentUuid;
-  if (!cid || !pid) return;
-  const oldPid = s.parentOf.get(cid);
-  if (oldPid && oldPid !== pid) {
-    const oldKids = s.childrenOf.get(oldPid);
-    if (oldKids) {
-      const i = oldKids.indexOf(cid);
-      if (i !== -1) oldKids.splice(i, 1);
-      if (!oldKids.length) s.childrenOf.delete(oldPid);
-    }
-  }
-  s.parentOf.set(cid, pid);
-  let kids = s.childrenOf.get(pid);
-  if (!kids) { kids = []; s.childrenOf.set(pid, kids); }
-  if (!kids.includes(cid)) kids.push(cid);
+  policy.recordLink(s.parentOf, s.childrenOf, childUuid, parentUuid);
 }
 
 function dropLink(s, childUuid) {
-  const cid = childUuid;
-  if (!cid) return;
-  const pid = s.parentOf.get(cid);
-  s.parentOf.delete(cid);
-  if (pid) {
-    const kids = s.childrenOf.get(pid);
-    if (kids) {
-      const i = kids.indexOf(cid);
-      if (i !== -1) kids.splice(i, 1);
-      if (!kids.length) s.childrenOf.delete(pid);
-    }
-  }
+  policy.dropLink(s.parentOf, s.childrenOf, childUuid);
 }
 
 // ─── Persistence ────────────────────────────────────────────────────────────
@@ -277,14 +263,10 @@ function writeSnapshot(snapshot) {
 }
 
 function snapshotMatchesWindow(snapshotWindow, win) {
-  if (!snapshotWindow?.tabs) return false;
-  const tabs = [...win.gBrowser.tabs];
-  if (snapshotWindow.tabs.length !== tabs.length) return false;
-  return snapshotWindow.tabs.every((savedTab, i) => {
-    const tab = tabs[i];
-    if (Boolean(savedTab.pinned) !== Boolean(tab.pinned)) return false;
-    if (savedTab.workspace && savedTab.workspace !== tabWorkspace(tab)) return false;
-    return !savedTab.url || !tabUrl(tab) || savedTab.url === tabUrl(tab);
+  return policy.snapshotMatchesTabs(snapshotWindow, [...win.gBrowser.tabs], {
+    isPinned: tab => Boolean(tab.pinned),
+    getWorkspace: tabWorkspace,
+    getUrl: tabUrl,
   });
 }
 
@@ -347,16 +329,7 @@ function findTabByUuid(win, uuid) {
 }
 
 function depthOf(s, tabUuid) {
-  let depth = 0;
-  let cursor = tabUuid;
-  const seen = new Set();
-  while (cursor && s.parentOf.has(cursor)) {
-    if (seen.has(cursor)) break;
-    seen.add(cursor);
-    cursor = s.parentOf.get(cursor);
-    depth++;
-  }
-  return depth;
+  return policy.depthOf(s.parentOf, tabUuid);
 }
 
 function applyDepthAttr(tab, depth) {
@@ -382,20 +355,23 @@ function retagAll(win, s) {
   }
 }
 
-function isDescendantOfAny(s, childUuid, ancestorUuids) {
-  let cursor = childUuid;
-  const seen = new Set();
-  while (cursor && s.parentOf.has(cursor)) {
-    if (seen.has(cursor)) return false;
-    seen.add(cursor);
-    cursor = s.parentOf.get(cursor);
-    if (ancestorUuids.has(cursor)) return true;
-  }
-  return false;
+function sortTabsByPosition(tabs) {
+  return policy.sortByPosition(tabs, tab => tab._tPos);
 }
 
-function movedRootUuids(s, movedUuids) {
-  return [...movedUuids].filter(uuid => !movedUuids.has(s.parentOf.get(uuid)));
+function descendantTabs(win, s, tab) {
+  const rootUuid = getCustomTabValue(win, tab, TAB_UUID_KEY);
+  if (!rootUuid) return [];
+  return policy.folderTargetItems(
+    "subtabs-only",
+    [...win.gBrowser.tabs],
+    s.childrenOf,
+    tab,
+    {
+      getId: candidate => getCustomTabValue(win, candidate, TAB_UUID_KEY),
+      getPosition: candidate => candidate._tPos,
+    }
+  );
 }
 
 // ─── Event handlers ─────────────────────────────────────────────────────────
@@ -472,22 +448,6 @@ function onDragStart(win, s, event) {
   s.drag = { movedUuids };
 }
 
-function findBelowReferenceTab(win, s, movedUuids) {
-  const tabs = [...win.gBrowser.tabs];
-  const movedIndexes = tabs
-    .map((tab, index) => movedUuids.has(ensureTabUuid(win, tab)) ? index : -1)
-    .filter(index => index !== -1);
-  if (!movedIndexes.length) return null;
-
-  for (let i = Math.max(...movedIndexes) + 1; i < tabs.length; i++) {
-    const uuid = ensureTabUuid(win, tabs[i]);
-    if (movedUuids.has(uuid)) continue;
-    if (isDescendantOfAny(s, uuid, movedUuids)) continue;
-    return tabs[i];
-  }
-  return null;
-}
-
 function applyDragHierarchyPolicy(win, s) {
   const movedUuids = s.drag?.movedUuids;
   s.drag = null;
@@ -496,22 +456,14 @@ function applyDragHierarchyPolicy(win, s) {
     return;
   }
 
-  const belowTab = findBelowReferenceTab(win, s, movedUuids);
-  const inheritedParentUuid = belowTab
-    ? s.parentOf.get(ensureTabUuid(win, belowTab)) || null
-    : null;
-
-  for (const rootUuid of movedRootUuids(s, movedUuids)) {
+  const orderedUuids = [...win.gBrowser.tabs].map(tab => ensureTabUuid(win, tab));
+  const parentUpdates = policy.dragParentUpdates(s.parentOf, orderedUuids, movedUuids);
+  for (const { id: rootUuid, parentId } of parentUpdates) {
     const rootTab = findTabByUuid(win, rootUuid);
     if (!rootTab) continue;
-    if (
-      inheritedParentUuid &&
-      inheritedParentUuid !== rootUuid &&
-      !movedUuids.has(inheritedParentUuid) &&
-      !wouldCreateCycle(s, rootUuid, inheritedParentUuid)
-    ) {
-      recordLink(s, rootUuid, inheritedParentUuid);
-      setStoredParentUuid(win, rootTab, inheritedParentUuid);
+    if (parentId) {
+      recordLink(s, rootUuid, parentId);
+      setStoredParentUuid(win, rootTab, parentId);
     } else {
       dropLink(s, rootUuid);
       clearStoredParentUuid(win, rootTab);
@@ -529,18 +481,482 @@ function scheduleDragHierarchyPolicy(win, s) {
   win.setTimeout(() => applyDragHierarchyPolicy(win, s), 0);
 }
 
+// ─── Tab context menu actions ───────────────────────────────────────────────
+
+function contextTab(win) {
+  return win.TabContextMenu?.contextTab || null;
+}
+
+function tabLabel(tab) {
+  return tab.getAttribute("label") ||
+    tab.label ||
+    tab.linkedBrowser?.currentURI?.displaySpec ||
+    "Subtabs";
+}
+
+function canUseZenFolders(win) {
+  return typeof win.gZenFolders?.createFolder === "function";
+}
+
+function isEssentialTab(tab) {
+  return tab?.hasAttribute?.("zen-essential");
+}
+
+function normalTabs(tabs) {
+  return tabs.filter(tab => tab?.isConnected && !isEssentialTab(tab));
+}
+
+function createZenFolder(win, tabs, label) {
+  const folderTabs = sortTabsByPosition(normalTabs(tabs));
+  if (!folderTabs.length || !canUseZenFolders(win)) return null;
+  try {
+    return win.gZenFolders.createFolder(folderTabs, {
+      label,
+      renameFolder: false,
+    });
+  } catch (e) {
+    console.warn(`[${STYLE_ID}] folder creation failed`, e);
+    return null;
+  }
+}
+
+function createNestedZenFolder(win, tabs, label, insertAfter = null) {
+  const folderTabs = sortTabsByPosition(normalTabs(tabs));
+  if (!folderTabs.length || !canUseZenFolders(win)) return null;
+  const options = { label, renameFolder: false };
+  if (insertAfter) options.insertAfter = insertAfter;
+  try {
+    return win.gZenFolders.createFolder(folderTabs, options);
+  } catch (e) {
+    console.warn(`[${STYLE_ID}] nested folder creation failed`, e);
+    return null;
+  }
+}
+
+function tabCopyPlan(win, tabs) {
+  return policy.copyPlanForTargets(normalTabs(tabs), {
+    getId: tab => getCustomTabValue(win, tab, TAB_UUID_KEY) || tab.id || "",
+    getUrl: tabUrl,
+    getTitle: tabLabel,
+    getPosition: tab => tab._tPos,
+  }).filter(copy => copy.url && copy.url !== "about:blank");
+}
+
+function createFlatTabCopies(win, tabs, insertAfter = null, { beforeAnchor = false } = {}) {
+  const copies = [];
+  const principal = Services.scriptSecurityManager.getSystemPrincipal();
+  const copyPlan = beforeAnchor ? tabCopyPlan(win, tabs).reverse() : tabCopyPlan(win, tabs);
+  let index = Number.isInteger(insertAfter?._tPos)
+    ? insertAfter._tPos + (beforeAnchor ? 0 : 1)
+    : undefined;
+
+  for (const copy of copyPlan) {
+    const options = {
+      triggeringPrincipal: principal,
+      relatedToCurrent: false,
+      skipAnimation: true,
+    };
+    if (Number.isInteger(index)) {
+      options.index = index;
+      if (!beforeAnchor) index++;
+    }
+    const duplicate = win.gBrowser.addTab(copy.url, options);
+    if (beforeAnchor) copies.unshift(duplicate);
+    else copies.push(duplicate);
+  }
+  return copies;
+}
+
+function copyOneTab(win, tab, insertAfter = null) {
+  return createFlatTabCopies(win, [tab], insertAfter)[0] || null;
+}
+
+function copyTabsBeforeAnchor(win, tabs, anchor) {
+  return createFlatTabCopies(win, tabs, anchor, { beforeAnchor: true });
+}
+
+function directChildTabs(win, s, tab) {
+  const rootUuid = getCustomTabValue(win, tab, TAB_UUID_KEY);
+  if (!rootUuid) return [];
+  return policy.directChildItems([...win.gBrowser.tabs], s.childrenOf, rootUuid, {
+    getId: candidate => getCustomTabValue(win, candidate, TAB_UUID_KEY),
+    getPosition: candidate => candidate._tPos,
+  });
+}
+
+function createNestedSubfolderForChildren(win, s, originalParent, copiedParent) {
+  const children = directChildTabs(win, s, originalParent);
+  if (!children.length || !copiedParent) return null;
+
+  const copiedChildren = [];
+  const childPairs = [];
+  const copiedDirectChildren = copyTabsBeforeAnchor(win, children, copiedParent);
+  for (let i = 0; i < children.length; i++) {
+    const copiedChild = copiedDirectChildren[i];
+    if (!copiedChild) continue;
+    copiedChildren.push(copiedChild);
+    childPairs.push({ original: children[i], copy: copiedChild });
+  }
+
+  const folder = createNestedZenFolder(
+    win,
+    copiedChildren,
+    tabLabel(originalParent),
+    copiedParent
+  );
+  for (const pair of childPairs) {
+    createNestedSubfolderForChildren(win, s, pair.original, pair.copy);
+  }
+  return folder;
+}
+
+function createHierarchicalFolderFromRoot(win, s, rootTab, includeRoot) {
+  if (includeRoot) {
+    const rootCopy = copyOneTab(win, rootTab, rootTab);
+    const rootFolder = createZenFolder(win, [rootCopy], tabLabel(rootTab));
+    createNestedSubfolderForChildren(win, s, rootTab, rootCopy);
+    return rootFolder;
+  }
+
+  const children = directChildTabs(win, s, rootTab);
+  const childCopies = [];
+  const childPairs = [];
+  const copiedDirectChildren = copyTabsBeforeAnchor(win, children, rootTab);
+  for (let i = 0; i < children.length; i++) {
+    const copiedChild = copiedDirectChildren[i];
+    if (!copiedChild) continue;
+    childCopies.push(copiedChild);
+    childPairs.push({ original: children[i], copy: copiedChild });
+  }
+  const rootFolder = createZenFolder(win, childCopies, tabLabel(rootTab));
+  for (const pair of childPairs) {
+    createNestedSubfolderForChildren(win, s, pair.original, pair.copy);
+  }
+  return rootFolder;
+}
+
+function convertTabToFolder(win, s, tab) {
+  createHierarchicalFolderFromRoot(win, s, tab, true);
+  updateSnapshot();
+}
+
+function createFolderForSubtabs(win, s, tab) {
+  createHierarchicalFolderFromRoot(win, s, tab, false);
+  updateSnapshot();
+}
+
+function removeTabs(win, tabs) {
+  const removableTabs = sortTabsByPosition(normalTabs(tabs));
+  if (!removableTabs.length) return;
+  if (typeof win.gBrowser.removeTabs === "function") {
+    win.gBrowser.removeTabs(removableTabs);
+    return;
+  }
+  for (const tab of removableTabs.reverse()) {
+    win.gBrowser.removeTab(tab);
+  }
+}
+
+function closeTabAndSubtabs(win, s, tab) {
+  const tabs = policy.folderTargetItems(
+    "root-and-subtabs",
+    [...win.gBrowser.tabs],
+    s.childrenOf,
+    tab,
+    {
+      getId: candidate => getCustomTabValue(win, candidate, TAB_UUID_KEY),
+      getPosition: candidate => candidate._tPos,
+    }
+  );
+  removeTabs(win, tabs);
+}
+
+function tabsInFolder(folder) {
+  const directTabs = [
+    ...(folder?.querySelectorAll?.(":scope > .tab-group-container > tab") || []),
+  ];
+  if (directTabs.length) return directTabs;
+  const tabs = folder?.tabs ? [...folder.tabs] : [];
+  if (tabs.length) return tabs;
+  return [];
+}
+
+function childFoldersInFolder(folder) {
+  return [...(folder?.querySelectorAll?.(":scope > .tab-group-container > zen-folder") || [])];
+}
+
+function folderChildrenInOrder(folder) {
+  const container = folder?.querySelector?.(":scope > .tab-group-container");
+  if (!container) return tabsInFolder(folder);
+  return [...container.children].filter(child => {
+    const tag = child.tagName?.toLowerCase?.();
+    return tag === "tab" || tag === "zen-folder";
+  });
+}
+
+function copyFolderHierarchyToTabs(win, s, folder, parentCopy = null) {
+  const entries = [];
+  let folderParent = parentCopy;
+
+  for (const child of folderChildrenInOrder(folder)) {
+    const tag = child.tagName?.toLowerCase?.();
+    if (tag === "tab") {
+      const entry = { tab: child, parentEntry: parentCopy ? folderParent : null };
+      entries.push(entry);
+      folderParent = entry;
+    } else if (tag === "zen-folder") {
+      entries.push(...folderCopyEntries(child, folderParent || parentCopy));
+    }
+  }
+
+  if (!entries.length && parentCopy) {
+    for (const childFolder of childFoldersInFolder(folder)) {
+      entries.push(...folderCopyEntries(childFolder, parentCopy));
+    }
+  }
+
+  return createFolderEntryCopies(win, s, entries, parentCopy);
+}
+
+function folderCopyEntries(folder, parentEntry = null) {
+  const entries = [];
+  let folderParent = parentEntry;
+  for (const child of folderChildrenInOrder(folder)) {
+    const tag = child.tagName?.toLowerCase?.();
+    if (tag === "tab") {
+      const entry = { tab: child, parentEntry };
+      entries.push(entry);
+      folderParent = entry;
+    } else if (tag === "zen-folder") {
+      entries.push(...folderCopyEntries(child, folderParent || parentEntry));
+    }
+  }
+  if (!entries.length && parentEntry) {
+    for (const childFolder of childFoldersInFolder(folder)) {
+      entries.push(...folderCopyEntries(childFolder, parentEntry));
+    }
+  }
+  return entries;
+}
+
+function createFolderEntryCopies(win, s, entries, anchor = null) {
+  const copiedByEntry = new Map();
+  const copiedTabs = [];
+  let insertAfter = anchor;
+  for (const entry of [...entries].reverse()) {
+    const copiedTab = copyOneTab(win, entry.tab, insertAfter);
+    if (!copiedTab) continue;
+    copiedByEntry.set(entry, copiedTab);
+    copiedTabs.unshift(copiedTab);
+    insertAfter = copiedTab;
+  }
+
+  for (const entry of entries) {
+    const copiedTab = copiedByEntry.get(entry);
+    const copiedParent = copiedByEntry.get(entry.parentEntry) ||
+      (entry.parentEntry?.isConnected ? entry.parentEntry : null);
+    if (!copiedTab || !copiedParent) continue;
+    const childUuid = ensureTabUuid(win, copiedTab);
+    const parentUuid = ensureTabUuid(win, copiedParent);
+    recordLink(s, childUuid, parentUuid);
+    setStoredParentUuid(win, copiedTab, parentUuid);
+    applyDepthAttr(copiedTab, depthOf(s, childUuid));
+  }
+
+  return copiedTabs;
+}
+
+function convertFolderToTabs(win, s, folder) {
+  copyFolderHierarchyToTabs(win, s, folder);
+  retagAll(win, s);
+  updateSnapshot();
+}
+
+function findTabContextMenu(win) {
+  return win.document.getElementById("tabContextMenu") ||
+    win.gBrowser?.tabContainer?.contextMenu ||
+    null;
+}
+
+function closestFolderSurface(node) {
+  if (!node?.closest) return null;
+  if (node.closest("tab")) return null;
+  return node.closest("zen-folder");
+}
+
+function eventFolder(win, event) {
+  return closestFolderSurface(event?.target?.triggerNode) ||
+    closestFolderSurface(event?.explicitOriginalTarget) ||
+    closestFolderSurface(win.document.popupNode);
+}
+
+function onTabContainerContextMenu(win, s, event) {
+  s.contextFolder = closestFolderSurface(event.target);
+}
+
+function setMenuItemState(win, s) {
+  const tab = contextTab(win);
+  const hasTab = Boolean(tab?.isConnected);
+  const folder = s.contextFolder?.isConnected
+    ? s.contextFolder
+    : eventFolder(win, null);
+  const canUseTab = !folder && hasTab && !isEssentialTab(tab);
+  const subtabs = hasTab ? normalTabs(descendantTabs(win, s, tab)) : [];
+  const canFolder = canUseTab && canUseZenFolders(win);
+  const folderTabs = normalTabs(tabsInFolder(folder));
+
+  s.menu.convert.hidden = Boolean(folder);
+  s.menu.subtabs.hidden = Boolean(folder);
+  s.menu.closeTree.hidden = Boolean(folder);
+  s.menu.convert.disabled = !canFolder;
+  s.menu.subtabs.disabled = !canFolder || !subtabs.length;
+  s.menu.closeTree.disabled = !canUseTab;
+  s.menu.folderToTabs.hidden = !folder;
+  s.menu.folderToTabs.disabled = !folder || !folderTabs.length;
+}
+
+function menuItem(doc, id, label, handler) {
+  const item = doc.createXULElement("menuitem");
+  item.id = id;
+  item.setAttribute("label", label);
+  item.addEventListener("command", handler);
+  return item;
+}
+
+function attachFolderContextMenu(win, s) {
+  if (s.folderMenu) return;
+  const doc = win.document;
+  const itemId = `${MENU_FOLDER_TO_TABS_ID}-folder-menu`;
+  const separatorId = `${MENU_FOLDER_TO_TABS_ID}-folder-menu-separator`;
+  const removeInjected = () => {
+    doc.getElementById(itemId)?.remove();
+    doc.getElementById(separatorId)?.remove();
+  };
+  const onPopupShowing = (event) => {
+    const popup = event.target;
+    const folder = s.contextFolder?.isConnected ? s.contextFolder : null;
+    if (!folder || popup.nodeName !== "menupopup") return;
+    const folderTabs = normalTabs(tabsInFolder(folder));
+    removeInjected();
+
+    const separator = doc.createXULElement("menuseparator");
+    separator.id = separatorId;
+    const convert = menuItem(
+      doc,
+      itemId,
+      "Convert folder to tabs",
+      () => {
+        if (folder.isConnected) convertFolderToTabs(win, s, folder);
+      }
+    );
+    convert.disabled = !folderTabs.length;
+    popup.insertBefore(separator, popup.firstElementChild);
+    popup.insertBefore(convert, popup.firstElementChild);
+  };
+  doc.addEventListener("popupshowing", onPopupShowing, true);
+  s.folderMenu = { onPopupShowing, removeInjected };
+}
+
+function detachFolderContextMenu(s) {
+  if (!s.folderMenu) return;
+  s.folderMenu.removeInjected();
+  s.folderMenu = null;
+}
+
+function detachFolderContextMenuFromWindow(win, s) {
+  if (!s.folderMenu) return;
+  win.document.removeEventListener("popupshowing", s.folderMenu.onPopupShowing, true);
+  detachFolderContextMenu(s);
+  s.folderMenu = null;
+}
+
+function attachContextMenu(win, s) {
+  if (s.menu) return;
+  const menu = findTabContextMenu(win);
+  if (!menu) return;
+
+  const doc = win.document;
+  doc.getElementById(MENU_SEPARATOR_ID)?.remove();
+  doc.getElementById(MENU_CONVERT_ID)?.remove();
+  doc.getElementById(MENU_SUBTABS_ID)?.remove();
+  doc.getElementById(MENU_CLOSE_TREE_ID)?.remove();
+  doc.getElementById(MENU_FOLDER_TO_TABS_ID)?.remove();
+
+  const separator = doc.createXULElement("menuseparator");
+  separator.id = MENU_SEPARATOR_ID;
+
+  const handlers = {
+    onPopupShowing: (event) => {
+      s.contextFolder = eventFolder(win, event) || s.contextFolder;
+      setMenuItemState(win, s);
+    },
+    onConvert: () => {
+      const tab = contextTab(win);
+      if (tab?.isConnected) convertTabToFolder(win, s, tab);
+    },
+    onSubtabs: () => {
+      const tab = contextTab(win);
+      if (tab?.isConnected) createFolderForSubtabs(win, s, tab);
+    },
+    onCloseTree: () => {
+      const tab = contextTab(win);
+      if (tab?.isConnected) closeTabAndSubtabs(win, s, tab);
+    },
+    onFolderToTabs: () => {
+      const folder = s.contextFolder;
+      if (folder?.isConnected) convertFolderToTabs(win, s, folder);
+    },
+  };
+
+  const convert = menuItem(
+    doc, MENU_CONVERT_ID, "Convert tab to folder", handlers.onConvert
+  );
+  const subtabs = menuItem(
+    doc, MENU_SUBTABS_ID, "Create folder for subtabs", handlers.onSubtabs
+  );
+  const closeTree = menuItem(
+    doc, MENU_CLOSE_TREE_ID, "Close tab and subtabs", handlers.onCloseTree
+  );
+  const folderToTabs = menuItem(
+    doc, MENU_FOLDER_TO_TABS_ID, "Convert folder to tabs", handlers.onFolderToTabs
+  );
+
+  const anchor = doc.getElementById("context_zenMoveToFolder") ||
+    doc.getElementById("context_closeTab") ||
+    menu.firstElementChild;
+  menu.insertBefore(separator, anchor);
+  menu.insertBefore(convert, anchor);
+  menu.insertBefore(subtabs, anchor);
+  menu.insertBefore(closeTree, anchor);
+  menu.insertBefore(folderToTabs, anchor);
+  menu.addEventListener("popupshowing", handlers.onPopupShowing);
+
+  s.menu = {
+    menu,
+    separator,
+    convert,
+    subtabs,
+    closeTree,
+    folderToTabs,
+    handlers,
+  };
+}
+
+function detachContextMenu(s) {
+  if (!s.menu) return;
+  s.menu.menu.removeEventListener("popupshowing", s.menu.handlers.onPopupShowing);
+  s.menu.separator.remove();
+  s.menu.convert.remove();
+  s.menu.subtabs.remove();
+  s.menu.closeTree.remove();
+  s.menu.folderToTabs.remove();
+  s.menu = null;
+}
+
 // ─── Window setup / teardown ────────────────────────────────────────────────
 
 function wouldCreateCycle(s, childUuid, parentUuid) {
-  let cursor = parentUuid;
-  const seen = new Set();
-  while (cursor) {
-    if (cursor === childUuid) return true;
-    if (seen.has(cursor)) return true;
-    seen.add(cursor);
-    cursor = s.parentOf.get(cursor);
-  }
-  return false;
+  return policy.wouldCreateCycle(s.parentOf, childUuid, parentUuid);
 }
 
 function rebuildFromSession(win, s, snapshotWindow = null) {
@@ -640,6 +1056,8 @@ function attachToWindow(win, { rebuild = state.restoreReady } = {}) {
   lib.injectStyle(win, STYLE_ID, buildCSS(win, config));
   const s = getWinState(win);
   wrapTabCreation(win, s);
+  attachContextMenu(win, s);
+  attachFolderContextMenu(win, s);
   if (rebuild) {
     rebuildFromSession(win, s);
   }
@@ -651,6 +1069,7 @@ function attachToWindow(win, { rebuild = state.restoreReady } = {}) {
     onDragStart: (e) => onDragStart(win, s, e),
     onDrop: () => scheduleDragHierarchyPolicy(win, s),
     onDragEnd: () => scheduleDragHierarchyPolicy(win, s),
+    onContextMenu: (e) => onTabContainerContextMenu(win, s, e),
   };
   const tc = win.gBrowser.tabContainer;
   tc.addEventListener("TabOpen", handlers.onTabOpen);
@@ -659,6 +1078,7 @@ function attachToWindow(win, { rebuild = state.restoreReady } = {}) {
   tc.addEventListener("dragstart", handlers.onDragStart);
   tc.addEventListener("drop", handlers.onDrop);
   tc.addEventListener("dragend", handlers.onDragEnd);
+  tc.addEventListener("contextmenu", handlers.onContextMenu);
   s.listeners = handlers;
 
   console.log(`[${STYLE_ID}] attached — ${s.parentOf.size} link(s) restored`);
@@ -676,8 +1096,11 @@ function detachFromWindow(win) {
       tc.removeEventListener("dragstart", s.listeners.onDragStart);
       tc.removeEventListener("drop", s.listeners.onDrop);
       tc.removeEventListener("dragend", s.listeners.onDragEnd);
+      tc.removeEventListener("contextmenu", s.listeners.onContextMenu);
     }
     unwrapTabCreation(win, s);
+    detachContextMenu(s);
+    detachFolderContextMenuFromWindow(win, s);
     for (const tab of win.gBrowser?.tabs ?? []) {
       tab.removeAttribute(DEPTH_ATTR);
     }

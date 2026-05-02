@@ -1,0 +1,15 @@
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_OPEN_MERGE_REQUESTS'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+
+stages:
+  - test
+
+test:
+  stage: test
+  image: node:22-bookworm-slim
+  script:
+    - npm run ci

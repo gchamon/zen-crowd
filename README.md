@@ -44,7 +44,11 @@ Tints each tab by its depth in the opener tree, so the parent/child relationship
 - Survives session restore via per-tab UUIDs, with a tab-order snapshot fallback
 - Dragging a tab makes it inherit the hierarchy level of the tab immediately below it
 - Closing a parent promotes its children to roots; their subtree retags at the new shallower depths
+- Tab right-click actions can copy a tab tree to a native Zen folder, copy only its subtabs to a native Zen folder, or close a tab with all subtabs
+- Folder right-click actions can copy native Zen folder contents back out as regular tabs
 - Visual prefs default to inheriting from the folder colorization mod's settings, so the two mods look consistent out of the box
+
+Native Zen folder actions use URL copies so the original colorized tabs and native folders stay in place. New root folders are created through Zen's normal folder area placement, and subtab hierarchy is represented as nested native folders under each copied parent tab. Copied tabs reload from their URLs; live page state, form state, and back-forward history are not cloned.
 
 ## Installation
 
@@ -68,7 +72,7 @@ The script will:
 1. Check for and optionally install fx-autoconfig application-level files (requires `sudo`)
 2. List profiles from `~/.zen/profiles.ini` (Linux) or `~/Library/Application Support/zen/profiles.ini` (macOS)
 3. Verify the selected profile has fx-autoconfig profile-side files
-4. Copy the shared library → `chrome/utils/zen-crowd-shared.sys.mjs`
+4. Copy shared libraries → `chrome/utils/zen-crowd-shared.sys.mjs` and `chrome/utils/zen-crowd-subtab-policy.sys.mjs`
 5. Copy mod metadata for both mods → `chrome/zen-themes/zen-crowd-folder-colorization/` and `chrome/zen-themes/zen-crowd-subtab-grouping/`
 6. Copy both scripts → `chrome/JS/nested-folder-colorization.uc.js` and `chrome/JS/subtab-grouping.uc.js`
 7. Register both mods in `zen-themes.json`
@@ -93,7 +97,7 @@ Re-run `bash deploy.sh` and restart Zen.
 bash remove.sh
 ```
 
-The script removes both zen-crowd mods from the selected profile, deletes their copied scripts and shared library, and removes their entries from `zen-themes.json`. It leaves fx-autoconfig in place because other userChrome scripts may use it.
+The script removes both zen-crowd mods from the selected profile, deletes their copied scripts and shared libraries, and removes their entries from `zen-themes.json`. It leaves fx-autoconfig in place because other userChrome scripts may use it.
 
 **Profile paths:**
 - Linux: `~/.zen/<profile-dir>/`
@@ -105,7 +109,8 @@ The script removes both zen-crowd mods from the selected profile, deletes their 
 ```
 ├── src/
 │   ├── lib/
-│   │   └── zen-crowd-shared.sys.mjs    # Shared helpers (palette, prefs, windows)
+│   │   ├── zen-crowd-shared.sys.mjs    # Shared helpers (palette, prefs, windows)
+│   │   └── zen-crowd-subtab-policy.sys.mjs # Pure subtab hierarchy policy
 │   ├── nested-folder-colorization.js   # Folder colorization mod source
 │   └── subtab-grouping.js              # Subtab grouping mod source
 ├── dist/
@@ -119,6 +124,7 @@ The script removes both zen-crowd mods from the selected profile, deletes their 
 │   ├── work-items/                     # Executable planning units
 │   ├── epics/                          # Larger feature streams
 │   └── architecture/                   # Decisions and methodology
+├── tests/                              # Node tests for pure mod policy
 ├── zen-browser-desktop/                # Reference checkout (excluded from distribution)
 ├── zen-sidebery-mod/                   # Reference checkout (excluded from distribution)
 └── deploy.sh                           # Install/deploy helper
@@ -168,7 +174,16 @@ Changes to either mod apply immediately across all open windows without restart.
 
 Paste `src/nested-folder-colorization.js` or `src/subtab-grouping.js` into the Browser Console (Ctrl+Shift+J) and press Enter. Re-pasting replaces the previous injection cleanly — no restart needed.
 
-Note: both source files import `chrome://userchromejs/content/zen-crowd-shared.sys.mjs`, so paste-loading requires the shared module to already be installed in `chrome/utils/` (i.e. you've already run `deploy.sh` once on the profile).
+Note: the source files import modules from `chrome://userchromejs/content/`, so paste-loading requires the shared modules to already be installed in `chrome/utils/` (i.e. you've already run `deploy.sh` once on the profile).
+
+### Tests
+
+Automated tests cover the pure subtab hierarchy policy and manifest shape. Browser-facing integration with Zen APIs still needs manual smoke testing in Zen.
+
+```bash
+npm test      # unit tests
+npm run ci    # syntax checks, shell checks, and unit tests
+```
 
 ## Roadmap
 
