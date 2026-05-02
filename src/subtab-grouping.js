@@ -25,11 +25,13 @@
 //   devtools.debugger.remote-enabled = true
 
 (() => {
+const MODULE_BASE_URI = globalThis.__zenCrowdModuleBaseURI ||
+  "chrome://userchromejs/content/";
 const lib = ChromeUtils.importESModule(
-  "chrome://userchromejs/content/zen-crowd-shared.sys.mjs"
+  `${MODULE_BASE_URI}zen-crowd-shared.sys.mjs`
 );
 const policy = ChromeUtils.importESModule(
-  "chrome://userchromejs/content/zen-crowd-subtab-policy.sys.mjs"
+  `${MODULE_BASE_URI}zen-crowd-subtab-policy.sys.mjs`
 );
 
 const GLOBAL_KEY = "__zenCrowdSubtabGrouping";
@@ -1187,6 +1189,8 @@ state.destroy = () => {
   }
   console.log(`[${STYLE_ID}] destroyed`);
 };
+
+globalThis.addUnloadListener?.(() => state.destroy());
 
 setup();
 rebuildAllAfterRestore().catch(e => {

@@ -1,0 +1,154 @@
+[
+  {
+    "type": "separator",
+    "label": "Nested Folder Colorization"
+  },
+  {
+    "property": "zen.crowd.folder.colorSource",
+    "label": "Color source",
+    "type": "dropdown",
+    "defaultValue": "",
+    "placeholder": "Theme accent (default)",
+    "options": [
+      { "label": "Fixed palette", "value": "palette" },
+      { "label": "Custom base color (hue-rotated)", "value": "custom-hue" },
+      { "label": "Custom colors (per depth)", "value": "custom-list" }
+    ]
+  },
+  {
+    "property": "zen.crowd.folder.customBaseColor",
+    "label": "Custom base color (hex)",
+    "type": "string",
+    "defaultValue": "#2980b9",
+    "placeholder": "#2980b9"
+  },
+  {
+    "property": "zen.crowd.folder.customColors",
+    "label": "Custom colors - comma-separated hex, one per depth",
+    "type": "string",
+    "defaultValue": "",
+    "placeholder": "#e74c3c,#e67e22,#27ae60,#2980b9,#8e44ad,#16a085"
+  },
+  {
+    "property": "zen.crowd.folder.colorTopLevelFolders",
+    "label": "Color top-level folders",
+    "type": "checkbox",
+    "defaultValue": true
+  },
+  {
+    "property": "zen.crowd.folder.colorTreatment",
+    "label": "Color treatment",
+    "type": "dropdown",
+    "defaultValue": "background",
+    "placeholder": "Background fill",
+    "options": [
+      { "label": "Background fill", "value": "background" },
+      { "label": "Left line", "value": "left-line" },
+      { "label": "Background + left line", "value": "both" }
+    ]
+  },
+  {
+    "property": "zen.crowd.folder.hoverExpandEnabled",
+    "label": "Hover-expand folders",
+    "type": "checkbox",
+    "defaultValue": true
+  },
+  {
+    "property": "zen.crowd.folder.hoverCollapseDelay",
+    "label": "Collapse delay (ms)",
+    "type": "string",
+    "defaultValue": "500",
+    "placeholder": "500"
+  },
+  {
+    "property": "zen.crowd.folder.tintOpacityLight",
+    "label": "Tint opacity - light theme (0-100)",
+    "type": "string",
+    "defaultValue": "18",
+    "placeholder": "18"
+  },
+  {
+    "property": "zen.crowd.folder.tintOpacityDark",
+    "label": "Tint opacity - dark theme (0-100)",
+    "type": "string",
+    "defaultValue": "22",
+    "placeholder": "22"
+  },
+  {
+    "property": "zen.crowd.folder.folderBorderRadius",
+    "label": "Folder border radius (px)",
+    "type": "string",
+    "defaultValue": "6",
+    "placeholder": "6"
+  },
+  {
+    "type": "separator",
+    "label": "Subtab Grouping"
+  },
+  {
+    "property": "zen.crowd.subtab.enabled",
+    "label": "Enable subtab grouping",
+    "type": "checkbox",
+    "defaultValue": true
+  },
+  {
+    "property": "zen.crowd.subtab.colorSource",
+    "label": "Color source - leave blank to inherit from folder colorization",
+    "type": "dropdown",
+    "defaultValue": "",
+    "placeholder": "Inherit from folder colorization",
+    "options": [
+      { "label": "Theme accent", "value": "" },
+      { "label": "Fixed palette", "value": "palette" },
+      { "label": "Custom base color (hue-rotated)", "value": "custom-hue" },
+      { "label": "Custom colors (per depth)", "value": "custom-list" }
+    ]
+  },
+  {
+    "property": "zen.crowd.subtab.customBaseColor",
+    "label": "Custom base color (hex) - blank inherits",
+    "type": "string",
+    "defaultValue": "",
+    "placeholder": "#2980b9"
+  },
+  {
+    "property": "zen.crowd.subtab.customColors",
+    "label": "Custom colors - comma-separated hex per depth (blank inherits)",
+    "type": "string",
+    "defaultValue": "",
+    "placeholder": "#e74c3c,#e67e22,#27ae60,#2980b9,#8e44ad,#16a085"
+  },
+  {
+    "property": "zen.crowd.subtab.colorTreatment",
+    "label": "Color treatment - blank inherits from folder colorization",
+    "type": "dropdown",
+    "defaultValue": "",
+    "placeholder": "Inherit from folder colorization",
+    "options": [
+      { "label": "Background fill", "value": "background" },
+      { "label": "Left line", "value": "left-line" },
+      { "label": "Background + left line", "value": "both" }
+    ]
+  },
+  {
+    "property": "zen.crowd.subtab.tintOpacityLight",
+    "label": "Tint opacity - light theme (0-100, blank inherits)",
+    "type": "string",
+    "defaultValue": "",
+    "placeholder": "18"
+  },
+  {
+    "property": "zen.crowd.subtab.tintOpacityDark",
+    "label": "Tint opacity - dark theme (0-100, blank inherits)",
+    "type": "string",
+    "defaultValue": "",
+    "placeholder": "22"
+  },
+  {
+    "property": "zen.crowd.subtab.borderRadius",
+    "label": "Border radius (px, blank inherits)",
+    "type": "string",
+    "defaultValue": "",
+    "placeholder": "6"
+  }
+]

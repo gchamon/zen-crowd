@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { access } from "node:fs/promises";
 import test from "node:test";
 
 const manifests = [
@@ -7,10 +8,15 @@ const manifests = [
   "dist/nested-folder-colorization/preferences.json",
   "dist/subtab-grouping/zen-mod.json",
   "dist/subtab-grouping/preferences.json",
+  "sine/preferences.json",
 ];
 
 async function readJson(path) {
   return JSON.parse(await readFile(new URL(`../${path}`, import.meta.url), "utf8"));
+}
+
+async function assertFileExists(path) {
+  await access(new URL(`../${path}`, import.meta.url));
 }
 
 test("Zen mod manifests are valid JSON with required fields", async () => {
@@ -27,8 +33,30 @@ test("preference manifests are valid JSON arrays", async () => {
     const preferences = await readJson(path);
     assert.equal(Array.isArray(preferences), true, path);
     for (const pref of preferences) {
-      assert.equal(typeof pref.property, "string", `${path}: preference property`);
+      if (pref.type !== "separator" && pref.type !== "text") {
+        assert.equal(typeof pref.property, "string", `${path}: preference property`);
+      }
       assert.equal(typeof pref.type, "string", `${path}: preference type`);
     }
+  }
+});
+
+test("Sine theme manifest is valid and references existing files", async () => {
+  const manifest = await readJson("theme.json");
+
+  assert.equal(manifest.id, "zen-crowd");
+  assert.equal(manifest.homepage, "https://github.com/gchamon/zen-crowd");
+  assert.equal(typeof manifest.name, "string");
+  assert.equal(typeof manifest.version, "string");
+  assert.equal(typeof manifest.description, "string");
+  assert.equal(typeof manifest.scripts, "object");
+  assert.equal(Object.hasOwn(manifest, "js"), false, "use scripts, not legacy js");
+
+  await assertFileExists(manifest.preferences);
+  await assertFileExists(manifest.style.chrome);
+
+  for (const scriptPath of Object.keys(manifest.scripts)) {
+    assert.match(scriptPath, /\.(uc\.js|uc\.mjs|sys\.mjs)$/);
+    await assertFileExists(scriptPath);
   }
 });

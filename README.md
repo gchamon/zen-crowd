@@ -52,7 +52,26 @@ Native Zen folder actions use URL copies so the original colorized tabs and nati
 
 ## Installation
 
-### Prerequisites
+### Sine
+
+Use [Sine](https://github.com/CosmoCreeper/Sine) if you already manage Zen Browser mods through it, or if you want repository-driven updates from the GitHub mirror.
+
+1. Install Sine v2.3.1 or newer.
+2. Enable unpublished mod installs in Sine.
+3. Install this repository URL:
+   ```
+   https://github.com/gchamon/zen-crowd
+   ```
+4. For unpublished JavaScript mods, enable Sine's unsafe JS setting if Sine prompts for it or if the scripts do not load.
+5. Restart Zen, or rebuild mods from Sine if available.
+
+The Sine package appears as one `zen-crowd` mod and enables both Nested Folder Colorization and Subtab Grouping. The marketplace listing is not complete yet; use the unpublished repository flow for now.
+
+### Manual Profile Deployment
+
+Use the manual path for local development, direct profile installation, or profiles that do not use Sine. It preserves the existing fx-autoconfig deployment model and installs the two Zen mod entries separately.
+
+#### Prerequisites
 
 1. **fx-autoconfig** — required for the mod JS to execute. `deploy.sh` installs both the application-level files (with `sudo`) and the profile-side boot files automatically on first run.
 
@@ -62,7 +81,7 @@ Native Zen folder actions use URL copies so the original colorized tabs and nati
    brew install yq jq       # macOS
    ```
 
-### Install
+#### Install
 
 ```bash
 bash deploy.sh
@@ -79,7 +98,7 @@ The script will:
 
 **First install only:** clear the startup cache before restarting — open `about:support` → **Clear startup cache**, then restart Zen.
 
-### Verify
+#### Verify
 
 Open the Browser Console (Ctrl+Shift+J) and look for:
 ```
@@ -87,11 +106,11 @@ Open the Browser Console (Ctrl+Shift+J) and look for:
 [zen-crowd-subtab-grouping] loaded
 ```
 
-### Update
+#### Update
 
 Re-run `bash deploy.sh` and restart Zen.
 
-### Uninstall
+#### Uninstall
 
 ```bash
 bash remove.sh
@@ -119,6 +138,7 @@ The script removes both zen-crowd mods from the selected profile, deletes their 
 │   │   ├── preferences.json            # Settings UI manifest
 │   │   └── chrome.css                  # Placeholder (all styling is JS-injected)
 │   └── subtab-grouping/                # Zen mod package (same shape)
+├── sine/                               # Single Sine package wrapper
 ├── spikes/                             # Feasibility proof-of-concepts from early exploration
 ├── docs/
 │   ├── work-items/                     # Executable planning units
@@ -127,12 +147,13 @@ The script removes both zen-crowd mods from the selected profile, deletes their 
 ├── tests/                              # Node tests for pure mod policy
 ├── zen-browser-desktop/                # Reference checkout (excluded from distribution)
 ├── zen-sidebery-mod/                   # Reference checkout (excluded from distribution)
+├── theme.json                          # Sine package metadata
 └── deploy.sh                           # Install/deploy helper
 ```
 
 ## Configuration
 
-When installed as a Zen mod, settings are surfaced in **Settings → Zen Mods → Configure**.
+When installed through Sine, settings are surfaced in Sine's mod settings panel under the single `zen-crowd` entry. When installed manually as Zen mods, settings are surfaced in **Settings → Zen Mods → Configure**.
 
 ### Nested Folder Colorization
 
@@ -174,7 +195,7 @@ Changes to either mod apply immediately across all open windows without restart.
 
 Paste `src/nested-folder-colorization.js` or `src/subtab-grouping.js` into the Browser Console (Ctrl+Shift+J) and press Enter. Re-pasting replaces the previous injection cleanly — no restart needed.
 
-Note: the source files import modules from `chrome://userchromejs/content/`, so paste-loading requires the shared modules to already be installed in `chrome/utils/` (i.e. you've already run `deploy.sh` once on the profile).
+Note: paste-loading uses the default `chrome://userchromejs/content/` module path, so it requires the shared modules to already be installed in `chrome/utils/` (i.e. you've already run `deploy.sh` once on the profile).
 
 ### Tests
 

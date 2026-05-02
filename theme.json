@@ -1,0 +1,29 @@
+{
+  "id": "zen-crowd",
+  "name": "zen-crowd",
+  "version": "1.0.0",
+  "description": "Adds nested folder colorization, hover-expand folders, and subtab grouping for Zen Browser.",
+  "author": "zen-crowd",
+  "homepage": "https://github.com/gchamon/zen-crowd",
+  "fork": [
+    "zen"
+  ],
+  "style": {
+    "chrome": "sine/chrome.css"
+  },
+  "preferences": "sine/preferences.json",
+  "scripts": {
+    "sine/nested-folder-colorization.uc.js": {
+      "include": [
+        "chrome://browser/content/browser.xhtml"
+      ],
+      "loadOrder": 10
+    },
+    "sine/subtab-grouping.uc.js": {
+      "include": [
+        "chrome://browser/content/browser.xhtml"
+      ],
+      "loadOrder": 20
+    }
+  }
+}

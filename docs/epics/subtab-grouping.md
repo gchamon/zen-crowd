@@ -52,6 +52,7 @@ the historical context.
 
 - [subtab-grouping-01-feasibility-spike](/docs/work-items/subtab-grouping-01-feasibility-spike.md)
 - [subtab-grouping-02-implementation](/docs/work-items/subtab-grouping-02-implementation.md)
+- [subtab-grouping-03-adopt-sine](/docs/work-items/subtab-grouping-03-adopt-sine.md)
 
 Packaging reuses the fx-autoconfig pipeline established by
 `nested-folder-colorization-03`. No dedicated `-03` work item is
@@ -105,6 +106,7 @@ subtab-grouping
 
 - subtab-grouping-01
 - subtab-grouping-02
+- subtab-grouping-03
 
 ### priority
 

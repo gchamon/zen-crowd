@@ -21,8 +21,10 @@
 //   devtools.debugger.remote-enabled = true
 
 (() => {
+const MODULE_BASE_URI = globalThis.__zenCrowdModuleBaseURI ||
+  "chrome://userchromejs/content/";
 const lib = ChromeUtils.importESModule(
-  "chrome://userchromejs/content/zen-crowd-shared.sys.mjs"
+  `${MODULE_BASE_URI}zen-crowd-shared.sys.mjs`
 );
 
 const GLOBAL_KEY = "__zenCrowdFolderColorization";
@@ -301,6 +303,8 @@ state.destroy = () => {
     }
   }
 };
+
+globalThis.addUnloadListener?.(() => state.destroy());
 
 setup();
 })();
