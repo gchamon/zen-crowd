@@ -126,34 +126,37 @@ function folderHasActiveTab(folder) {
   return folder.hasAttribute("has-active");
 }
 
+function expandFolderFromHover(folder) {
+  if (!folder.collapsed) return;
+  folder.collapsed = false;
+  if (!folderHasActiveTab(folder)) {
+    folder.classList.add(HOVER_CLASS);
+  }
+}
+
 function attachHoverHandlers(folder) {
   if (state.attachedFolders.has(folder)) return;
+  const header = folder.querySelector(":scope > .tab-group-label-container");
+  if (!header) return;
   state.attachedFolders.add(folder);
 
   const onMouseEnter = (event) => {
     if (!Services.prefs.getBoolPref("zen.crowd.folder.hoverExpandEnabled", true)) return;
     if (event.shiftKey) return;
     if (!folder.collapsed) return;
-    folder.collapsed = false;
-    if (!folderHasActiveTab(folder)) {
-      folder.classList.add(HOVER_CLASS);
-    }
+    expandFolderFromHover(folder);
   };
 
   const onDragEnter = () => {
     if (!Services.prefs.getBoolPref("zen.crowd.folder.hoverExpandEnabled", true)) return;
     const tabsContainer = folder.closest("#tabbrowser-tabs");
     if (tabsContainer) cancelCollapseTimers(tabsContainer);
-    if (!folder.collapsed) return;
-    folder.collapsed = false;
-    if (!folderHasActiveTab(folder)) {
-      folder.classList.add(HOVER_CLASS);
-    }
+    expandFolderFromHover(folder);
   };
 
-  folder.addEventListener("mouseenter", onMouseEnter);
+  header.addEventListener("mouseenter", onMouseEnter);
   folder.addEventListener("dragenter", onDragEnter);
-  state.folderListeners.set(folder, { onMouseEnter, onDragEnter });
+  state.folderListeners.set(folder, { header, onMouseEnter, onDragEnter });
 }
 
 function cancelCollapseTimers(tabsContainer) {
@@ -298,7 +301,7 @@ state.destroy = () => {
       folder.classList.remove(HOVER_CLASS);
       const listeners = state.folderListeners.get(folder);
       if (!listeners) continue;
-      folder.removeEventListener("mouseenter", listeners.onMouseEnter);
+      listeners.header?.removeEventListener("mouseenter", listeners.onMouseEnter);
       folder.removeEventListener("dragenter", listeners.onDragEnter);
     }
   }
