@@ -98,6 +98,24 @@ export function buildThemePalette(win, count, hueStep) {
   return buildHueRotatedPalette(win, raw || "#2980b9", count, hueStep);
 }
 
+export function isPrivateWindow(win) {
+  try {
+    const utils = globalThis.PrivateBrowsingUtils ||
+      globalThis.ChromeUtils?.importESModule(
+        "resource://gre/modules/PrivateBrowsingUtils.sys.mjs"
+      ).PrivateBrowsingUtils;
+    return Boolean(utils?.isWindowPrivate(win));
+  } catch (_) {
+    return false;
+  }
+}
+
+function fallbackPalette(win, count, hueStep) {
+  return isPrivateWindow(win)
+    ? DEFAULT_PALETTE
+    : buildThemePalette(win, count, hueStep);
+}
+
 // Selects a palette based on a colorSource string.
 //   ""            → theme accent (default)
 //   "palette"     → DEFAULT_PALETTE
@@ -121,10 +139,10 @@ export function selectPalette(win, {
       const hexes = (customColors || "").split(",").map(s => s.trim()).filter(Boolean);
       return hexes.length
         ? buildCustomListPalette(win, hexes, count)
-        : buildThemePalette(win, count, hueStep);
+        : fallbackPalette(win, count, hueStep);
     }
     default:
-      return buildThemePalette(win, count, hueStep);
+      return fallbackPalette(win, count, hueStep);
   }
 }
 

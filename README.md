@@ -54,7 +54,11 @@ Native Zen folder actions use URL copies so the original colorized tabs and nati
 
 ### Sine
 
-Use [Sine](https://github.com/CosmoCreeper/Sine) if you already manage Zen Browser mods through it, or if you want repository-driven updates from the GitHub mirror.
+Use [Sine](https://github.com/CosmoCreeper/Sine) if you already manage Zen Browser mods through it.
+
+When `zen-crowd` is available in the official Sine marketplace, install it from **Settings → Sine Mods → Marketplace**. Official store installs are trusted by Sine and do not require enabling unsafe JavaScript.
+
+Until the marketplace listing is accepted, use Sine's unpublished repository flow:
 
 1. Install Sine v2.3.1 or newer.
 2. Enable unpublished mod installs in Sine.
@@ -65,7 +69,9 @@ Use [Sine](https://github.com/CosmoCreeper/Sine) if you already manage Zen Brows
 4. For unpublished JavaScript mods, enable Sine's unsafe JS setting if Sine prompts for it or if the scripts do not load.
 5. Restart Zen, or rebuild mods from Sine if available.
 
-The Sine package appears as one `zen-crowd` mod and enables both Nested Folder Colorization and Subtab Grouping. The marketplace listing is not complete yet; use the unpublished repository flow for now.
+The Sine package appears as one `zen-crowd` mod and enables both Nested Folder Colorization and Subtab Grouping.
+
+Maintainer publishing notes for the official Sine store live in [`docs/sine-store-publication.md`](docs/sine-store-publication.md).
 
 ### Manual Profile Deployment
 

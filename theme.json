@@ -21,6 +21,7 @@
     "chrome": "sine/chrome.css"
   },
   "preferences": "sine/preferences.json",
+  "supportsUnload": true,
   "scripts": {
     "sine/nested-folder-colorization.uc.js": {
       "include": [

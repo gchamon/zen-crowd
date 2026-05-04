@@ -50,13 +50,16 @@ test("Sine theme manifest is valid and references existing files", async () => {
   assert.equal(typeof manifest.version, "string");
   assert.equal(typeof manifest.description, "string");
   assert.equal(typeof manifest.scripts, "object");
+  assert.equal(manifest.supportsUnload, true);
   assert.equal(Object.hasOwn(manifest, "js"), false, "use scripts, not legacy js");
 
   await assertFileExists(manifest.preferences);
   await assertFileExists(manifest.style.chrome);
 
-  for (const scriptPath of Object.keys(manifest.scripts)) {
+  for (const [scriptPath, options] of Object.entries(manifest.scripts)) {
     assert.match(scriptPath, /\.(uc\.js|uc\.mjs|sys\.mjs)$/);
+    assert.equal(Array.isArray(options.include), true, `${scriptPath}: include`);
+    assert.equal(typeof options.loadOrder, "number", `${scriptPath}: loadOrder`);
     await assertFileExists(scriptPath);
   }
 });
