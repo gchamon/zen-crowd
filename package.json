@@ -1,12 +1,13 @@
 {
   "name": "zen-crowd",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "type": "module",
   "scripts": {
+    "sync:version": "bash scripts/sync-version.sh",
     "test": "node --test tests/*.test.mjs",
     "check:js": "node --check src/nested-folder-colorization.js && node --check src/subtab-grouping.js && node --check src/lib/zen-crowd-shared.sys.mjs && node --check src/lib/zen-crowd-subtab-policy.sys.mjs && node --check sine/nested-folder-colorization.uc.js && node --check sine/subtab-grouping.uc.js",
-    "check:shell": "bash -n deploy.sh remove.sh lib.sh",
+    "check:shell": "bash -n deploy.sh remove.sh lib.sh scripts/sync-version.sh",
     "ci": "npm run check:js && npm run check:shell && npm test"
   }
 }

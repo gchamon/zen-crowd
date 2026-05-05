@@ -19,6 +19,10 @@ async function assertFileExists(path) {
   await access(new URL(`../${path}`, import.meta.url));
 }
 
+async function readText(path) {
+  return readFile(new URL(`../${path}`, import.meta.url), "utf8");
+}
+
 test("Zen mod manifests are valid JSON with required fields", async () => {
   for (const path of manifests.filter(path => path.endsWith("zen-mod.json"))) {
     const manifest = await readJson(path);
@@ -61,5 +65,20 @@ test("Sine theme manifest is valid and references existing files", async () => {
     assert.equal(Array.isArray(options.include), true, `${scriptPath}: include`);
     assert.equal(typeof options.loadOrder, "number", `${scriptPath}: loadOrder`);
     await assertFileExists(scriptPath);
+  }
+});
+
+test("versioned manifests match version.txt", async () => {
+  const version = (await readText("version.txt")).trim();
+  assert.match(version, /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/);
+
+  for (const path of [
+    "package.json",
+    "theme.json",
+    "dist/nested-folder-colorization/zen-mod.json",
+    "dist/subtab-grouping/zen-mod.json",
+  ]) {
+    const manifest = await readJson(path);
+    assert.equal(manifest.version, version, path);
   }
 });

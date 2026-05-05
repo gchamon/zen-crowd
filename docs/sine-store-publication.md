@@ -24,7 +24,7 @@ install it without enabling `sine.allow-unsafe-js`.
      "zen-crowd": {
        "id": "zen-crowd",
        "name": "zen-crowd",
-       "version": "1.0.0",
+       "version": "1.0.1",
        "description": "Adds nested folder colorization, hover-expand folders, and subtab grouping for Zen Browser.",
        "author": "Gabriel Chamon",
        "homepage": "https://github.com/gchamon/zen-crowd",

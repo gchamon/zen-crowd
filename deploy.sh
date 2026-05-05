@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib.sh"
+VERSION="$(<"$SCRIPT_DIR/version.txt")"
 
 # ─── Usage ────────────────────────────────────────────────────────────────────
 
@@ -149,12 +150,12 @@ deploy_to_profile() {
     if [ ! -f "$ZEN_THEMES_JSON" ]; then
         echo '{}' > "$ZEN_THEMES_JSON"
     fi
-    jq '. + {
+    jq --arg version "$VERSION" '. + {
             "zen-crowd-folder-colorization": {
                 "id": "zen-crowd-folder-colorization",
                 "name": "Nested Folder Colorization",
                 "enabled": true,
-                "version": "1.0.0",
+                "version": $version,
                 "description": "Colorizes nested folders by depth and adds hover-expand behavior.",
                 "preferences": true
             },
@@ -162,7 +163,7 @@ deploy_to_profile() {
                 "id": "zen-crowd-subtab-grouping",
                 "name": "Subtab Grouping",
                 "enabled": true,
-                "version": "1.0.0",
+                "version": $version,
                 "description": "Tints tabs by opener depth so the subtab tree is visible at a glance.",
                 "preferences": true
             }
