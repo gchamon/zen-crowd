@@ -934,7 +934,7 @@ function attachContextMenu(win, s) {
   };
 
   const convert = menuItem(
-    doc, MENU_CONVERT_ID, "Convert tab to folder", handlers.onConvert
+    doc, MENU_CONVERT_ID, "Create folder for this tab", handlers.onConvert
   );
   const subtabs = menuItem(
     doc, MENU_SUBTABS_ID, "Create folder for subtabs", handlers.onSubtabs

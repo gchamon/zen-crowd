@@ -40,7 +40,7 @@ Carried forward from `-01`:
 - **Parent-close lifecycle**: promote children to roots, retag
   subtrees.
 - **Context menu actions**: add explicit right-click actions for
-  native Zen folder copying and tree closing. "Convert tab to folder"
+  native Zen folder copying and tree closing. "Create folder for this tab"
   creates URL copies for the clicked tab plus all saved descendants,
   then groups the copies. "Create folder for subtabs" copies only
   saved descendants. "Convert folder to tabs" copies a native folder's
@@ -112,7 +112,7 @@ New decisions for the implementation:
   block after drop. If that reference tab is top-level, or no valid
   reference exists, promote the moved root to top-level. Preserve any
   descendants under the moved root and retag its subtree.
-- Inject idempotent context-menu items for: "Convert tab to folder",
+- Inject idempotent context-menu items for: "Create folder for this tab",
   "Create folder for subtabs", "Convert folder to tabs", and "Close
   tab and subtabs". Folder actions create URL-copy tabs before calling
   Zen's native `gZenFolders.createFolder`. Root folders are created
