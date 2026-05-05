@@ -38,8 +38,7 @@ update_sine_release_metadata() {
 
 update_json_release_metadata package.json
 update_sine_release_metadata theme.json
-update_json_release_metadata dist/nested-folder-colorization/zen-mod.json
-update_json_release_metadata dist/subtab-grouping/zen-mod.json
+update_json_release_metadata dist/zen-crowd/zen-mod.json
 
 echo "sync-version: updating docs/sine-store-publication.md"
 sed -i -E \

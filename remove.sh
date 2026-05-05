@@ -42,6 +42,21 @@ select_profiles
 
 # ─── Remove from each selected profile ────────────────────────────────────────
 
+remove_sine_mod() {
+    local chrome_dir="$1"
+    local sine_mods_dir="$chrome_dir/sine-mods"
+    local mods_json="$sine_mods_dir/mods.json"
+    local mod_dir="$sine_mods_dir/zen-crowd"
+
+    rm -rf "$mod_dir"
+    if [ -f "$mods_json" ]; then
+        jq 'del(."zen-crowd")' \
+            "$mods_json" > "$mods_json.tmp" && mv "$mods_json.tmp" "$mods_json"
+        echo "  Updated         -> $mods_json"
+    fi
+    echo "  Removed Sine mod dir        -> $mod_dir"
+}
+
 remove_from_profile() {
     local name="$1"
     local PROFILE_PATH
@@ -54,11 +69,14 @@ remove_from_profile() {
     local THEMES_DIR="$CHROME_DIR/zen-themes"
     local JS_DIR="$CHROME_DIR/JS"
     local UTILS_DIR="$CHROME_DIR/utils"
-    local FOLDER_MOD_DIR="$THEMES_DIR/zen-crowd-folder-colorization"
-    local SUBTAB_MOD_DIR="$THEMES_DIR/zen-crowd-subtab-grouping"
+    local MOD_DIR="$THEMES_DIR/zen-crowd"
+    local LEGACY_FOLDER_MOD_DIR="$THEMES_DIR/zen-crowd-folder-colorization"
+    local LEGACY_SUBTAB_MOD_DIR="$THEMES_DIR/zen-crowd-subtab-grouping"
     local ZEN_THEMES_JSON="$PROFILE_PATH/zen-themes.json"
 
-    rm -rf "$FOLDER_MOD_DIR" "$SUBTAB_MOD_DIR"
+    remove_sine_mod "$CHROME_DIR"
+
+    rm -rf "$MOD_DIR" "$LEGACY_FOLDER_MOD_DIR" "$LEGACY_SUBTAB_MOD_DIR"
     rm -f "$JS_DIR/nested-folder-colorization.uc.js"
     rm -f "$JS_DIR/nested-folder-colorization.js"
     rm -f "$JS_DIR/subtab-grouping.uc.js"
@@ -67,6 +85,7 @@ remove_from_profile() {
 
     if [ -f "$ZEN_THEMES_JSON" ]; then
         jq 'del(
+              ."zen-crowd",
               ."zen-crowd-folder-colorization",
               ."zen-crowd-subtab-grouping"
             )' \
@@ -74,8 +93,8 @@ remove_from_profile() {
         echo "  Updated         -> $ZEN_THEMES_JSON"
     fi
 
-    echo "  Removed folder mod theme dir -> $FOLDER_MOD_DIR"
-    echo "  Removed subtab mod theme dir -> $SUBTAB_MOD_DIR"
+    echo "  Removed mod theme dir        -> $MOD_DIR"
+    echo "  Removed legacy theme dirs    -> $LEGACY_FOLDER_MOD_DIR, $LEGACY_SUBTAB_MOD_DIR"
     echo "  Removed scripts              -> $JS_DIR/nested-folder-colorization.uc.js, $JS_DIR/subtab-grouping.uc.js"
     echo "  Removed shared libs          -> $UTILS_DIR/zen-crowd-shared.sys.mjs, $UTILS_DIR/zen-crowd-subtab-policy.sys.mjs"
 }

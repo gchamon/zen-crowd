@@ -1,9 +1,0 @@
-{
-  "id": "zen-crowd-subtab-grouping",
-  "name": "Subtab Grouping",
-  "version": "1.0.1",
-  "description": "Tints tabs by opener depth so the subtab tree is visible at a glance.",
-  "author": "zen-crowd",
-  "homepage": "",
-  "preferences": true
-}

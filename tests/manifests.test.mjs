@@ -4,10 +4,8 @@ import { access } from "node:fs/promises";
 import test from "node:test";
 
 const manifests = [
-  "dist/nested-folder-colorization/zen-mod.json",
-  "dist/nested-folder-colorization/preferences.json",
-  "dist/subtab-grouping/zen-mod.json",
-  "dist/subtab-grouping/preferences.json",
+  "dist/zen-crowd/zen-mod.json",
+  "dist/zen-crowd/preferences.json",
   "sine/preferences.json",
 ];
 
@@ -45,6 +43,13 @@ test("preference manifests are valid JSON arrays", async () => {
   }
 });
 
+test("manual Zen preferences match Sine preferences", async () => {
+  assert.deepEqual(
+    await readJson("dist/zen-crowd/preferences.json"),
+    await readJson("sine/preferences.json")
+  );
+});
+
 test("Sine theme manifest is valid and references existing files", async () => {
   const manifest = await readJson("theme.json");
 
@@ -77,8 +82,7 @@ test("versioned manifests match version.txt", async () => {
   for (const path of [
     "package.json",
     "theme.json",
-    "dist/nested-folder-colorization/zen-mod.json",
-    "dist/subtab-grouping/zen-mod.json",
+    "dist/zen-crowd/zen-mod.json",
   ]) {
     const manifest = await readJson(path);
     assert.equal(manifest.version, version, path);

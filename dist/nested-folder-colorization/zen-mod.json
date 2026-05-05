@@ -1,9 +1,0 @@
-{
-  "id": "zen-crowd-folder-colorization",
-  "name": "Nested Folder Colorization",
-  "version": "1.0.1",
-  "description": "Colorizes nested folders by depth and adds hover-expand behavior.",
-  "author": "zen-crowd",
-  "homepage": "",
-  "preferences": true
-}

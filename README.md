@@ -75,7 +75,7 @@ Maintainer publishing notes for the official Sine store live in [`docs/sine-stor
 
 ### Manual Profile Deployment
 
-Use the manual path for local development, direct profile installation, or profiles that do not use Sine. It preserves the existing fx-autoconfig deployment model and installs the two Zen mod entries separately.
+Use the manual path for local development and direct profile installation. `deploy.sh` is Sine-aware: profiles with Sine installed receive a Sine package, while profiles without Sine receive one native `zen-crowd` Zen mod entry.
 
 #### Prerequisites
 
@@ -98,9 +98,11 @@ The script will:
 2. List profiles from `~/.zen/profiles.ini` (Linux) or `~/Library/Application Support/zen/profiles.ini` (macOS)
 3. Verify the selected profile has fx-autoconfig profile-side files
 4. Copy shared libraries → `chrome/utils/zen-crowd-shared.sys.mjs` and `chrome/utils/zen-crowd-subtab-policy.sys.mjs`
-5. Copy mod metadata for both mods → `chrome/zen-themes/zen-crowd-folder-colorization/` and `chrome/zen-themes/zen-crowd-subtab-grouping/`
-6. Copy both scripts → `chrome/JS/nested-folder-colorization.uc.js` and `chrome/JS/subtab-grouping.uc.js`
-7. Register both mods in `zen-themes.json`
+5. Copy both scripts → `chrome/JS/nested-folder-colorization.uc.js` and `chrome/JS/subtab-grouping.uc.js`
+6. If Sine is installed, copy the Sine package → `chrome/sine-mods/zen-crowd/` and update `chrome/sine-mods/mods.json`
+7. Otherwise, copy native Zen mod metadata → `chrome/zen-themes/zen-crowd/` and update `zen-themes.json`
+
+For unpublished Sine installs, keep Sine's unsafe JS setting enabled until `zen-crowd` is published through the official Sine store.
 
 **First install only:** clear the startup cache before restarting — open `about:support` → **Clear startup cache**, then restart Zen.
 
@@ -122,7 +124,7 @@ Re-run `bash deploy.sh` and restart Zen.
 bash remove.sh
 ```
 
-The script removes both zen-crowd mods from the selected profile, deletes their copied scripts and shared libraries, and removes their entries from `zen-themes.json`. It leaves fx-autoconfig in place because other userChrome scripts may use it.
+The script removes zen-crowd from the selected profile, deletes the copied scripts and shared libraries, removes any Sine or native Zen mod entry, and cleans up older split mod entries if present. It leaves fx-autoconfig in place because other userChrome scripts may use it.
 
 **Profile paths:**
 - Linux: `~/.zen/<profile-dir>/`
@@ -139,11 +141,10 @@ The script removes both zen-crowd mods from the selected profile, deletes their 
 │   ├── nested-folder-colorization.js   # Folder colorization mod source
 │   └── subtab-grouping.js              # Subtab grouping mod source
 ├── dist/
-│   ├── nested-folder-colorization/     # Zen mod package
-│   │   ├── zen-mod.json                # Mod metadata
-│   │   ├── preferences.json            # Settings UI manifest
-│   │   └── chrome.css                  # Placeholder (all styling is JS-injected)
-│   └── subtab-grouping/                # Zen mod package (same shape)
+│   └── zen-crowd/                      # Manual Zen mod package
+│       ├── zen-mod.json                # Mod metadata
+│       ├── preferences.json            # Settings UI manifest
+│       └── chrome.css                  # Placeholder (all styling is JS-injected)
 ├── sine/                               # Single Sine package wrapper
 ├── spikes/                             # Feasibility proof-of-concepts from early exploration
 ├── docs/
@@ -159,7 +160,7 @@ The script removes both zen-crowd mods from the selected profile, deletes their 
 
 ## Configuration
 
-When installed through Sine, settings are surfaced in Sine's mod settings panel under the single `zen-crowd` entry. When installed manually as Zen mods, settings are surfaced in **Settings → Zen Mods → Configure**.
+When installed through Sine, settings are surfaced in Sine's mod settings panel under the single `zen-crowd` entry. When installed manually as a Zen mod, settings are surfaced under the single `zen-crowd` entry in **Settings → Zen Mods → Configure**.
 
 ### Nested Folder Colorization
 

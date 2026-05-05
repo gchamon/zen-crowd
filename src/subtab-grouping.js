@@ -825,6 +825,30 @@ function menuItem(doc, id, label, handler) {
   return item;
 }
 
+function isVisibleMenuChild(node) {
+  return !node.hidden &&
+    node.getAttribute("hidden") !== "true" &&
+    node.getAttribute("collapsed") !== "true";
+}
+
+function secondToLastGroupAnchor(popup) {
+  const visibleChildren = [...popup.children].filter(isVisibleMenuChild);
+  const separators = visibleChildren.filter(
+    node => node.localName === "menuseparator"
+  );
+  if (separators.length) {
+    return separators.at(-1);
+  }
+  return visibleChildren.at(-1) || null;
+}
+
+function insertSecondToLastMenuGroup(popup, nodes) {
+  const anchor = secondToLastGroupAnchor(popup);
+  for (const node of nodes) {
+    popup.insertBefore(node, anchor);
+  }
+}
+
 function attachFolderContextMenu(win, s) {
   if (s.folderMenu) return;
   const doc = win.document;
@@ -852,8 +876,7 @@ function attachFolderContextMenu(win, s) {
       }
     );
     convert.disabled = !folderTabs.length;
-    popup.insertBefore(separator, popup.firstElementChild);
-    popup.insertBefore(convert, popup.firstElementChild);
+    insertSecondToLastMenuGroup(popup, [separator, convert]);
   };
   doc.addEventListener("popupshowing", onPopupShowing, true);
   s.folderMenu = { onPopupShowing, removeInjected };
@@ -923,14 +946,9 @@ function attachContextMenu(win, s) {
     doc, MENU_FOLDER_TO_TABS_ID, "Convert folder to tabs", handlers.onFolderToTabs
   );
 
-  const anchor = doc.getElementById("context_zenMoveToFolder") ||
-    doc.getElementById("context_closeTab") ||
-    menu.firstElementChild;
-  menu.insertBefore(separator, anchor);
-  menu.insertBefore(convert, anchor);
-  menu.insertBefore(subtabs, anchor);
-  menu.insertBefore(closeTree, anchor);
-  menu.insertBefore(folderToTabs, anchor);
+  insertSecondToLastMenuGroup(
+    menu, [separator, convert, subtabs, closeTree, folderToTabs]
+  );
   menu.addEventListener("popupshowing", handlers.onPopupShowing);
 
   s.menu = {

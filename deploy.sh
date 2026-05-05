@@ -99,6 +99,104 @@ select_profiles
 
 # ─── Deploy to each selected profile ─────────────────────────────────────────
 
+is_sine_profile() {
+    local chrome_dir="$1"
+    [ -f "$chrome_dir/JS/sine.sys.mjs" ] || [ -f "$chrome_dir/sine-mods/mods.json" ]
+}
+
+remove_native_zen_entries() {
+    local profile_path="$1"
+    local chrome_dir="$2"
+    local themes_dir="$chrome_dir/zen-themes"
+    local zen_themes_json="$profile_path/zen-themes.json"
+
+    rm -rf \
+        "$themes_dir/zen-crowd" \
+        "$themes_dir/zen-crowd-folder-colorization" \
+        "$themes_dir/zen-crowd-subtab-grouping"
+
+    if [ -f "$zen_themes_json" ]; then
+        jq 'del(
+              ."zen-crowd",
+              ."zen-crowd-folder-colorization",
+              ."zen-crowd-subtab-grouping"
+            )' \
+            "$zen_themes_json" > "$zen_themes_json.tmp" && mv "$zen_themes_json.tmp" "$zen_themes_json"
+    fi
+}
+
+copy_sine_package() {
+    local target_dir="$1"
+    rm -rf "$target_dir"
+    mkdir -p "$target_dir"
+    cp "$SCRIPT_DIR/theme.json" "$target_dir/"
+    cp "$SCRIPT_DIR/package.json" "$target_dir/"
+    cp -R "$SCRIPT_DIR/sine" "$target_dir/"
+    cp -R "$SCRIPT_DIR/src" "$target_dir/"
+}
+
+deploy_sine_mod() {
+    local profile_path="$1"
+    local chrome_dir="$2"
+    local sine_mods_dir="$chrome_dir/sine-mods"
+    local target_dir="$sine_mods_dir/zen-crowd"
+    local mods_json="$sine_mods_dir/mods.json"
+
+    mkdir -p "$sine_mods_dir"
+    if [ ! -f "$mods_json" ]; then
+        echo '{}' > "$mods_json"
+    fi
+
+    remove_native_zen_entries "$profile_path" "$chrome_dir"
+    copy_sine_package "$target_dir"
+
+    jq --slurpfile mod "$target_dir/theme.json" \
+        '. + { "zen-crowd": ($mod[0] + { enabled: true, "no-updates": false }) }' \
+        "$mods_json" > "$mods_json.tmp" && mv "$mods_json.tmp" "$mods_json"
+
+    echo "  Sine package    -> $target_dir"
+    echo "  Sine mods.json  -> $mods_json"
+    echo "  Note            -> unpublished Sine JS requires sine.allow-unsafe-js = true"
+}
+
+deploy_native_zen_mod() {
+    local profile_path="$1"
+    local chrome_dir="$2"
+    local themes_dir="$chrome_dir/zen-themes"
+    local mod_dir="$themes_dir/zen-crowd"
+    local legacy_folder_mod_dir="$themes_dir/zen-crowd-folder-colorization"
+    local legacy_subtab_mod_dir="$themes_dir/zen-crowd-subtab-grouping"
+    local zen_themes_json="$profile_path/zen-themes.json"
+
+    mkdir -p "$mod_dir"
+    rm -rf "$legacy_folder_mod_dir" "$legacy_subtab_mod_dir"
+
+    cp "$SCRIPT_DIR/dist/zen-crowd/zen-mod.json" "$mod_dir/"
+    cp "$SCRIPT_DIR/dist/zen-crowd/preferences.json" "$mod_dir/"
+    cp "$SCRIPT_DIR/dist/zen-crowd/chrome.css" "$mod_dir/"
+
+    if [ ! -f "$zen_themes_json" ]; then
+        echo '{}' > "$zen_themes_json"
+    fi
+    jq --arg version "$VERSION" 'del(
+            ."zen-crowd-folder-colorization",
+            ."zen-crowd-subtab-grouping"
+        ) + {
+            "zen-crowd": {
+                "id": "zen-crowd",
+                "name": "zen-crowd",
+                "enabled": true,
+                "version": $version,
+                "description": "Adds nested folder colorization, hover-expand folders, and subtab grouping for Zen Browser.",
+                "preferences": true
+            }
+        }' \
+        "$zen_themes_json" > "$zen_themes_json.tmp" && mv "$zen_themes_json.tmp" "$zen_themes_json"
+
+    echo "  Zen mod         -> $mod_dir"
+    echo "  zen-themes.json -> $zen_themes_json"
+}
+
 deploy_to_profile() {
     local name="$1"
     local PROFILE_PATH
@@ -123,57 +221,27 @@ deploy_to_profile() {
     local THEMES_DIR="$CHROME_DIR/zen-themes"
     local JS_DIR="$CHROME_DIR/JS"
     local UTILS_DIR="$CHROME_DIR/utils"
-    local FOLDER_MOD_DIR="$THEMES_DIR/zen-crowd-folder-colorization"
-    local SUBTAB_MOD_DIR="$THEMES_DIR/zen-crowd-subtab-grouping"
 
-    mkdir -p "$FOLDER_MOD_DIR" "$SUBTAB_MOD_DIR" "$JS_DIR" "$UTILS_DIR"
+    mkdir -p "$THEMES_DIR" "$JS_DIR" "$UTILS_DIR"
 
-    # Shared library — both mods import it via
+    # Shared library — both runtime scripts import it via
     # chrome://userchromejs/content/zen-crowd-shared.sys.mjs
     cp "$SCRIPT_DIR/src/lib/zen-crowd-shared.sys.mjs" "$UTILS_DIR/zen-crowd-shared.sys.mjs"
     cp "$SCRIPT_DIR/src/lib/zen-crowd-subtab-policy.sys.mjs" "$UTILS_DIR/zen-crowd-subtab-policy.sys.mjs"
 
-    # Folder colorization mod
-    cp "$SCRIPT_DIR/dist/nested-folder-colorization/zen-mod.json" "$FOLDER_MOD_DIR/"
-    cp "$SCRIPT_DIR/dist/nested-folder-colorization/preferences.json" "$FOLDER_MOD_DIR/"
-    cp "$SCRIPT_DIR/dist/nested-folder-colorization/chrome.css" "$FOLDER_MOD_DIR/"
+    # Runtime scripts remain separate because fx-autoconfig loads each .uc.js file.
     cp "$SCRIPT_DIR/src/nested-folder-colorization.js" "$JS_DIR/nested-folder-colorization.uc.js"
     rm -f "$JS_DIR/nested-folder-colorization.js"
-
-    # Subtab grouping mod
-    cp "$SCRIPT_DIR/dist/subtab-grouping/zen-mod.json" "$SUBTAB_MOD_DIR/"
-    cp "$SCRIPT_DIR/dist/subtab-grouping/preferences.json" "$SUBTAB_MOD_DIR/"
-    cp "$SCRIPT_DIR/dist/subtab-grouping/chrome.css" "$SUBTAB_MOD_DIR/"
     cp "$SCRIPT_DIR/src/subtab-grouping.js" "$JS_DIR/subtab-grouping.uc.js"
 
-    local ZEN_THEMES_JSON="$PROFILE_PATH/zen-themes.json"
-    if [ ! -f "$ZEN_THEMES_JSON" ]; then
-        echo '{}' > "$ZEN_THEMES_JSON"
+    if is_sine_profile "$CHROME_DIR"; then
+        deploy_sine_mod "$PROFILE_PATH" "$CHROME_DIR"
+    else
+        deploy_native_zen_mod "$PROFILE_PATH" "$CHROME_DIR"
     fi
-    jq --arg version "$VERSION" '. + {
-            "zen-crowd-folder-colorization": {
-                "id": "zen-crowd-folder-colorization",
-                "name": "Nested Folder Colorization",
-                "enabled": true,
-                "version": $version,
-                "description": "Colorizes nested folders by depth and adds hover-expand behavior.",
-                "preferences": true
-            },
-            "zen-crowd-subtab-grouping": {
-                "id": "zen-crowd-subtab-grouping",
-                "name": "Subtab Grouping",
-                "enabled": true,
-                "version": $version,
-                "description": "Tints tabs by opener depth so the subtab tree is visible at a glance.",
-                "preferences": true
-            }
-        }' \
-        "$ZEN_THEMES_JSON" > "$ZEN_THEMES_JSON.tmp" && mv "$ZEN_THEMES_JSON.tmp" "$ZEN_THEMES_JSON"
 
     echo "  Shared libs     -> $UTILS_DIR/zen-crowd-shared.sys.mjs, $UTILS_DIR/zen-crowd-subtab-policy.sys.mjs"
-    echo "  Folder mod      -> $FOLDER_MOD_DIR (+ $JS_DIR/nested-folder-colorization.uc.js)"
-    echo "  Subtab mod      -> $SUBTAB_MOD_DIR (+ $JS_DIR/subtab-grouping.uc.js)"
-    echo "  zen-themes.json -> $ZEN_THEMES_JSON"
+    echo "  Runtime scripts -> $JS_DIR/nested-folder-colorization.uc.js, $JS_DIR/subtab-grouping.uc.js"
 }
 
 for profile_name in "${SELECTED_PROFILES[@]}"; do
