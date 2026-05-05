@@ -52,6 +52,8 @@ test("Sine theme manifest is valid and references existing files", async () => {
   assert.equal(manifest.homepage, "https://github.com/gchamon/zen-crowd");
   assert.equal(typeof manifest.name, "string");
   assert.equal(typeof manifest.version, "string");
+  assert.equal(typeof manifest.updatedAt, "string");
+  assert.match(manifest.updatedAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
   assert.equal(typeof manifest.description, "string");
   assert.equal(typeof manifest.scripts, "object");
   assert.equal(manifest.supportsUnload, true);
@@ -81,4 +83,7 @@ test("versioned manifests match version.txt", async () => {
     const manifest = await readJson(path);
     assert.equal(manifest.version, version, path);
   }
+
+  const sineManifest = await readJson("theme.json");
+  assert.match(sineManifest.updatedAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
 });
